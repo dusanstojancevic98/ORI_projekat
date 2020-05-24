@@ -190,6 +190,26 @@ class GameState:
     """
     return self.data.layout.walls[x][y]
 
+  def getOpponentPosition(self,agent):
+    """
+    Vrai pozicije protivnika
+    :param: agent - agent od kog se traze protivnici
+    :return: Recnik sa pocicijama dic['g'] ce biti pozicija ukoliko su duhovi
+    dic[p] pozicije kad nisu duhovi
+    """
+    pozicije = {
+      'g': [],
+      'p': []
+    }
+
+    for indexOpp in agent.getOpponents(self):
+      pozicija = self.getAgentPosition(indexOpp)
+      if self.getAgentState(indexOpp).isPacman:
+        pozicije['p'].append(pozicija)
+      else:
+        pozicije['g'].append(pozicija)
+    return pozicije
+
   def isOver( self ):
     return self.data._win
 

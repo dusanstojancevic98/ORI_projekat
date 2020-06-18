@@ -2,27 +2,20 @@ from random import random, randint
 
 import os
 
-# os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
-
+os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
 
 import cv2
 import gc
-from PIL import Image
-import tensorflow as tf
 from keras.utils import Sequence
-from keras_preprocessing.image import ImageDataGenerator
-from keras.initializers import Zeros, Ones, RandomNormal
 from keras import Sequential
-from keras.models import load_model
 from keras.callbacks import ModelCheckpoint, Callback, TerminateOnNaN
 from keras.losses import mean_squared_error, mean_absolute_percentage_error, categorical_crossentropy
-from keras.activations import linear, relu
 from keras.optimizers import Adam
-from keras.layers import Conv2D, MaxPooling2D, LeakyReLU, Dense, Dropout, ZeroPadding2D
+from keras.layers import Conv2D, MaxPooling2D, LeakyReLU, Dense, Dropout, ZeroPadding2D, Flatten
 import numpy as np
-import xml.etree.ElementTree as ET
-
 import pandas as p
+
+from numpy import newaxis
 
 epochs = 5
 # steps = 50
@@ -119,7 +112,7 @@ class DataDivider:
 
 
 class SegGenerator(Sequence):
-    def __init__(self, images, outputs, batch, input_size=(160, 90), shuffle=True):
+    def __init__(self, images, outputs, batch, image_path="", input_size=(160, 90), shuffle=True):
         self.images = images
         self.outputs = outputs
         self.shuffle = shuffle
@@ -128,6 +121,7 @@ class SegGenerator(Sequence):
         self.ep_cnt = 0
         self.b_cnt = 0
         self.input_size = input_size
+        self.image_path = image_path
 
     def __getitem__(self, index):
         if self.b_cnt == 0:
@@ -148,15 +142,15 @@ class SegGenerator(Sequence):
         print("Epoch {}".format(self.ep_cnt))
 
     def getX(self, s):
-        x = np.empty((self.batch_size, self.input_size[1], self.input_size[0], 3))
+        x = np.empty((self.batch_size, self.input_size[1], self.input_size[0], 1))
         for index, i in enumerate(s):
-            img = cv2.imread(self.images[i])
-            img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_AREA)
+            img = cv2.imread(os.path.join(self.image_path, self.images[i]))
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_AREA)
             img = img / 255.
             if np.isnan(np.sum(img)):
                 raise Exception("Nan in input! Image: '{}'", self.images[i])
-            x[index] = img
+            x[index] = img[:, :, newaxis]
         gc.collect()
         return x
 
@@ -186,13 +180,15 @@ def train(model=None, input_size=(160, 90)):
         divider.train
         , divider.values
         , batch_size
-        , input_size
+        , image_path="./chest_xray_data_set/"
+        , input_size=input_size
     )
     val_gen = SegGenerator(
         divider.test
         , divider.values
         , batch_size
-        , input_size
+        , image_path="./chest_xray_data_set/"
+        , input_size=input_size
     )
 
     mcheckpoint = ModelCheckpoint('/content/drive/My Drive/model_chckpoint_{epoch:02d}.h5'
@@ -203,7 +199,7 @@ def train(model=None, input_size=(160, 90)):
                                   )
     if model is None:
         model = Sequential()
-        model.add(Conv2D(64, (3, 3), input_shape=(90, 160, 3)))
+        model.add(Conv2D(64, (3, 3), input_shape=(90, 160, 1)))
         model.add(LeakyReLU(alpha=0.3))
         model.add(Dropout(0.5))
         model.add(MaxPooling2D((2, 2), (2, 2)))
@@ -286,6 +282,7 @@ def train(model=None, input_size=(160, 90)):
         # model.add(Dense(128))
         # model.add(LeakyReLU(alpha=0.3))
         # model.add(Dropout(0.5))
+        model.add(Flatten())
         model.add(Dense(64))
         model.add(LeakyReLU(alpha=0))
         model.add(Dropout(0.5))
@@ -296,18 +293,17 @@ def train(model=None, input_size=(160, 90)):
         model.add(LeakyReLU(alpha=0.3))
         model.add(Dropout(0.5))
         model.add(Dense(len(CLASSES), activation="softmax"))
-        # 64 x 36
+
         model.compile(optimizer=Adam(0.01), loss=categorical_crossentropy, metrics=['accuracy'])
         model.summary()
     print("################ classes : {} ################".format(CLASSES))
 
-    model.fit(train_gen, validation_data=val_gen, epochs=epochs
-              , verbose=1
-              , callbacks=[PyDriveCallback(), TerminateOnNaN()])
+    model.fit_generator(train_gen, validation_data=val_gen, epochs=epochs
+                        , verbose=1
+                        , callbacks=[PyDriveCallback(), TerminateOnNaN()])
     model.summary()
     model.save('/content/drive/My Drive/model-small.h5')
 
 
 if __name__ == '__main__':
     train()
-

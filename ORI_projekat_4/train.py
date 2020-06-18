@@ -29,7 +29,7 @@ epochs = 5
 # v_steps = 25
 batch_size = 32
 
-CLASSES = ["Normal", "bacteria", "Virus"]
+CLASSES = ["Normal", "Bacteria", "Virus"]
 
 W = 480
 H = 270
@@ -45,15 +45,16 @@ class PyDriveCallback(Callback):
 
 class DataDivider:
     file_name: str
-    train: list
-    test: list
-    validate: list
+    _train: list
+    _test: list
+    _validate: list
 
     def __init__(self, file_name):
         self.file_name = file_name
-        self.train = []
-        self.test = []
-        self.validate = []
+        self._train = []
+        self._test = []
+        self._validate = []
+        self._values = {}
 
     def divide_data(self):
         normal = []
@@ -61,77 +62,72 @@ class DataDivider:
         bacteria = []
         data = p.read_csv(self.file_name)
         for i, img in data.iterrows():
+            # print("0, {}".format(img.iloc[0]))
+            # print("1, {}".format(img.iloc[1]))
+            # print("2, {}".format(img.iloc[2]))
+            # print("3, {}".format(img.iloc[3]))
+            # print("4, {}".format(img.iloc[4]))
+            # if img.size > 5:
+            #     print("5, {}".format(i, img.iloc[5]))
+
+            name = img.iloc[1]
             if img.iloc[2] == "Normal":
-                normal.append(img.iloc[1])
+                normal.append(name)
+                self._values[name] = 0
             elif img.size > 3 and img.iloc[4] == "bacteria":
-                bacteria.append(img.iloc[1])
+                bacteria.append(name)
+                self._values[name] = 1
             elif img.size > 3 and img.iloc[4] == "Virus":
-                virus.append(img.iloc[1])
+                virus.append(name)
+                self._values[name] = 2
+        print("Values: {}".format(self._values))
+        self.__divide_array(normal)
+        self.__divide_array(virus)
+        self.__divide_array(bacteria)
+        print("TRAIN: {}".format(len(self.train)))
+        print("TEST: {}".format(len(self._test)))
+        print("VALIDATE: {}".format(len(self._validate)))
 
     def __divide_array(self, array):
         n = len(array)
-        d = int(n*7/10)
-        d1 = int(n*9/10)
-        self.train.append([array[i] for i in range(0, d)])
-        self.test.append([array[i] for i in range(d, d1)])
-        self.validate.append([array[i] for i in range(d1, n)])
+        print("n = {}".format(n))
+        d = int(n * 7 / 10)
+        d1 = int(n * 9 / 10)
+        print("0-{}-{}-{}".format(d, d1, n))
+        for i in range(0, d):
+            self.train.append(array[i])
+        for i in range(d, d1):
+            self._test.append(array[i])
+        for i in range(d1, n):
+            self._validate.append(array[i])
 
+    @property
+    def train(self):
+        return self._train
+
+    @property
+    def validate(self):
+        return self._validate
+
+    @property
+    def test(self):
+        return self._test
+
+    @property
+    def values(self):
+        return self._values
 
 
 class SegGenerator(Sequence):
-    def __init__(self, images, outputs, batch, input_size=(160, 90), output_size=(64, 36), shuffle=True, limit=None):
-        self.classes_colors = []
-        self.classes = []
+    def __init__(self, images, outputs, batch, input_size=(160, 90), shuffle=True):
         self.images = images
         self.outputs = outputs
         self.shuffle = shuffle
         self.batch_size = batch
-        self.input_size = input_size
-        self.output_size = output_size
-        self.names = []
-        self.names_dict = {}
-        i = 0
-        for name in os.listdir(images):
-            self.names.append(name)
-            self.names_dict[name] = i
-            # print("Added pic {}".format(name))
-            i += 1
-            if limit is not None:
-                if i >= limit:
-                    break
-        print("Added {} X pics".format(len(self.names)))
-        self.outputs_names = [0] * len(self.names)
-        for name in os.listdir(outputs):
-            rname = name.split("_train_color")[0] + ".jpg"
-            if rname in self.names_dict:
-                index = self.names_dict[rname]
-                # print("Added val pic {}".format(name))
-                self.outputs_names[index] = name
-        print("Added {} Y pics".format(len(self.outputs_names)))
-        if len(self.names) != len(self.outputs_names):
-            raise Exception("Input and output are not equal in size!")
-        self.indexes = np.arange(len(self.names))
+        self.indexes = np.arange(len(self.images))
         self.ep_cnt = 0
         self.b_cnt = 0
-
-    def load_classes(self, path):
-        with open(path) as f:
-            lines = f.readlines()
-            print(len(lines))
-            for i, line in enumerate(lines):
-                if i == 0:
-                    continue
-                elems = line.split(",")
-                c = elems[0]
-                # print(elems[4], elems[5], elems[6])
-                r = int(elems[4].split("\"")[1])
-                g = int(elems[5])
-                b = int(elems[6].split("\"")[0])
-                color = (r, g, b)
-                # print(color)
-                self.classes.append(c)
-                self.classes_colors.append(color)
-                # print("Dodata klasa {}".format(c))
+        self.input_size = input_size
 
     def __getitem__(self, index):
         if self.b_cnt == 0:
@@ -142,7 +138,7 @@ class SegGenerator(Sequence):
         return self.getX(s), self.getY(s)
 
     def __len__(self):
-        return int(np.floor(len(self.names) / self.batch_size))
+        return int(np.floor(len(self.images) / self.batch_size))
 
     def on_epoch_end(self):
         if self.shuffle:
@@ -154,58 +150,23 @@ class SegGenerator(Sequence):
     def getX(self, s):
         x = np.empty((self.batch_size, self.input_size[1], self.input_size[0], 3))
         for index, i in enumerate(s):
-            img = cv2.imread(os.path.join(self.images, self.names[i]))
+            img = cv2.imread(self.images[i])
             img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_AREA)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             img = img / 255.
             if np.isnan(np.sum(img)):
-                raise Exception("Nan in input!")
+                raise Exception("Nan in input! Image: '{}'", self.images[i])
             x[index] = img
         gc.collect()
         return x
 
     def getY(self, s):
-        y = np.zeros((self.batch_size, self.output_size[1], self.output_size[0], len(self.classes)))
+        y = np.zeros((self.batch_size, len(CLASSES)))
         for index, i in enumerate(s):
-            img = cv2.imread(os.path.join(self.outputs, self.outputs_names[i]))
-            # cv2_imshow( img)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            # cv2_imshow(img)
-            # cv2.waitKey(20)
-            # sleep(1000)
-            shape = img.shape
-            n = np.zeros((self.output_size[1], self.output_size[0], 3))
-            dw = shape[1] // self.output_size[0]
-            dh = shape[0] // self.output_size[1]
-            for ij, j in enumerate(range(0, shape[0], dh)):
-                if ij >= self.output_size[1]:
-                    break
-                for ik, k in enumerate(range(0, shape[1], dw)):
-                    if ik >= self.output_size[0]:
-                        continue
-                    index1 = j + dh // 2
-                    index2 = k + dw // 2
-                    if index1 > shape[0]:
-                        index1 = shape[0] - 1
-
-                    if index2 > shape[1]:
-                        index2 = shape[1] - 1
-                    n[ij][ik] = img[index1, index2]
-            count = 0
-            for j in range(self.output_size[1]):
-                for k in range(self.output_size[0]):
-                    for ci, color in enumerate(self.classes_colors):
-                        cell = n[j, k]
-                        if int(cell[0]) == color[0] and int(cell[1]) == color[1] and int(cell[2]) == color[2]:
-                            y[index, j, k, ci] = 1
-                            count += 1
-                            break
-                            # print("Promenjeno {} celija od {}".format(count, self.output_size[0]*self.output_size[1]))
+            out = self.outputs[self.images[i]]
+            y[index, out] = 1
         gc.collect()
         return y
-
-    def get_class_size(self):
-        return len(self.classes)
 
 
 accepted_diff = 0.01
@@ -217,29 +178,29 @@ accepted_diff = 0.01
 #     return K.mean(K.cast(diff < accepted_diff, tf.float32))
 
 
-def trainsmall(model=None):
+def train(model=None, input_size=(160, 90)):
+    divider = DataDivider("chest_xray_data_set/metadata/chest_xray_metadata.csv")
+    divider.divide_data()
+
     train_gen = SegGenerator(
-        "/content/drive/My Drive/seg/images/train", "/content/drive/My Drive/seg/color_labels/train"
+        divider.train
+        , divider.values
         , batch_size
-        , input_size=(160, 90)
-        , limit=500
-        , output_size=(24, 9))
-    train_gen.load_classes("/content/drive/My Drive/seg/categories.csv")
+        , input_size
+    )
     val_gen = SegGenerator(
-        "/content/drive/My Drive/seg/images/val"
-        , "/content/drive/My Drive/seg/color_labels/val"
+        divider.test
+        , divider.values
         , batch_size
-        , limit=100
-        , input_size=(160, 90)
-        , output_size=(24, 9))
-    val_gen.load_classes("/content/drive/My Drive/seg/categories.csv")
+        , input_size
+    )
+
     mcheckpoint = ModelCheckpoint('/content/drive/My Drive/model_chckpoint_{epoch:02d}.h5'
                                   , verbose=1
                                   , save_best_only=False
                                   , save_weights_only=False,
                                   mode='max'
                                   )
-    classes = train_gen.get_class_size()
     if model is None:
         model = Sequential()
         model.add(Conv2D(64, (3, 3), input_shape=(90, 160, 3)))
@@ -334,11 +295,11 @@ def trainsmall(model=None):
         model.add(Dense(16))
         model.add(LeakyReLU(alpha=0.3))
         model.add(Dropout(0.5))
-        model.add(Dense(classes, activation="softmax"))
+        model.add(Dense(len(CLASSES), activation="softmax"))
         # 64 x 36
         model.compile(optimizer=Adam(0.01), loss=categorical_crossentropy, metrics=['accuracy'])
         model.summary()
-    print("################ classes : {} ################".format(classes))
+    print("################ classes : {} ################".format(CLASSES))
 
     model.fit(train_gen, validation_data=val_gen, epochs=epochs
               , verbose=1
@@ -347,126 +308,6 @@ def trainsmall(model=None):
     model.save('/content/drive/My Drive/model-small.h5')
 
 
-def train():
-    model = Sequential()
+if __name__ == '__main__':
+    train()
 
-    train_gen = SegGenerator("/content/drive/My Drive/seg/images/train",
-                             "/content/drive/My Drive/seg/color_labels/train", batch_size)
-    train_gen.load_classes("/content/drive/My Drive/seg/categories.csv")
-    val_gen = SegGenerator("/content/drive/My Drive/seg/images/val", "/content/drive/My Drive/seg/color_labels/val",
-                           batch_size)
-    val_gen.load_classes("/content/drive/My Drive/seg/categories.csv")
-    classes = train_gen.get_class_size()
-    print("######################### classes : {} ################".format(classes))
-    mcheckpoint = ModelCheckpoint('/content/drive/My Drive/model_chckpoint_{epoch:02d}.h5'
-                                  , verbose=1
-                                  , save_best_only=False
-                                  , save_weights_only=False,
-                                  mode='max'
-                                  )
-    # model.add(Conv2D(64, (3, 3), input_shape=(180, 320, 3)))
-    # model.add(LeakyReLU(alpha=0.3))
-    # model.add(Dropout(0.5))
-    # model.add(MaxPooling2D((2, 2), (2, 2)))
-    # model.add(Dropout(0.5))
-
-    model.add(Conv2D(64, (2, 2), input_shape=(90, 160, 3)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-
-    # 159 x 89
-    model.add(Conv2D(64, (3, 3)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(MaxPooling2D((2, 2), (2, 2)))
-    model.add(Dropout(0.5))
-    # 78 x 43
-    model.add(Conv2D(128, (3, 3)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    # 76x41
-    model.add(Conv2D(256, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-
-    model.add(Conv2D(512, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(1024, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(512, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(1024, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    # 76 x 41
-    # model.add(Conv2D(512, (3, 3), padding="same"))
-    # model.add(LeakyReLU(alpha=0.3))
-    # model.add(Dropout(0.5))
-    # model.add(Conv2D(1024, (3, 3), padding="same"))
-    # model.add(LeakyReLU(alpha=0.3))
-    # model.add(Dropout(0.5))
-    # model.add(Conv2D(512, (3, 3), padding="same"))
-    # model.add(LeakyReLU(alpha=0.3))
-    # model.add(Dropout(0.5))
-    model.add(Conv2D(1024, (3, 5)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-
-    # 72 x 39
-
-    model.add(Conv2D(256, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(512, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(256, (3, 3), padding="same"))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(512, (3, 5)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    # 68 x 37
-    model.add(Conv2D(512, (2, 5)))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    """
-    DENSE
-    """
-    # model.add(Dense(512))
-    # model.add(LeakyReLU(alpha=0))
-
-    # model.add(Dropout(0.5))
-    # model.add(LeakyReLU(alpha=0))
-    # model.add(Dropout(0.5))
-
-    model.add(Dense(256))
-    model.add(LeakyReLU(alpha=0.3))
-    model.add(Dropout(0.5))
-    model.add(Dense(128))
-    model.add(LeakyReLU(alpha=0.3))
-    # model.add(Dropout(0.5))
-    # model.add(Dense(64))
-    # model.add(LeakyReLU(alpha=0))
-    # model.add(Dropout(0.5))
-    # model.add(Dense(32))
-    # model.add(LeakyReLU(alpha=0))
-    # model.add(Dropout(0.5))
-    model.add(Dense(classes, activation="sigmoid"))
-    # 64 x 36
-    model.compile(optimizer=Adam(0.1), loss=mean_absolute_percentage_error, metrics=['accuracy'])
-    model.summary()
-
-    model.fit(train_gen, validation_data=val_gen, epochs=epochs,
-              verbose=1, callbacks=[PyDriveCallback()])
-    model.summary()
-    model.save('/content/drive/My Drive/model.h5')
-
-
-# trainsmall()
-
-divider = DataDivider("chest_xray_data_set/metadata/chest_xray_metadata.csv")
-divider.divide_data()

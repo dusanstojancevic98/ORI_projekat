@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-DIM = 5
-STEPS = 10
+DIM = 10
+STEPS = 100
 COLS = 17
-
+np.random.seed(1)
 
 def euclid_distance(x, y):
     return np.linalg.norm(x - y)
@@ -47,7 +47,6 @@ def load_data(skip=0):
 
 
 def standardize_data(data):
-    print(data[0])
     max = np.full(COLS, -np.inf)
     min = np.full(COLS, np.inf)
     for i, row in enumerate(data):
@@ -76,11 +75,12 @@ def standardize_data(data):
     return data
 
 
-def train(alpha=0.6):
+def train(max_alpha=0.6):
     x = load_data(skip=1)
     x = standardize_data(x)
     weights = np.random.random((DIM * DIM, COLS))
     for step in range(STEPS):
+        alpha = max_alpha * (1 - step / STEPS)
         print("========= STEP: {} alpha: {} =========".format(step, alpha))
         for i, row in enumerate(x):
             min_index = None
@@ -98,7 +98,6 @@ def train(alpha=0.6):
             # print("SUB: {}, NW:{}".format(sub, new_weight))
             weights[min_index] = new_weight
 
-        alpha = alpha * (1 - step / STEPS)
     print(weights)
 
     u_matrix = np.zeros(shape=(DIM, DIM), dtype=np.float64)

@@ -14,6 +14,7 @@
 
 from captureAgents import CaptureAgent
 from featureExtractors import *
+from capture import AgentRules
 import random, time, util
 from game import Directions
 import game
@@ -21,7 +22,6 @@ import game
 #################
 # Team creation #
 #################
-
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'ApproximateQAgent', second = 'ApproximateQAgent',**args):
   """
@@ -97,7 +97,10 @@ class QLearningAgent(CaptureAgent):
     "You can initialize Q-values here..."
     CaptureAgent.__init__(self, index, timeForComputing = .1)
     self.qValues = util.Counter()
-    self.epsilon = 0.1
+    self.epsilon = args['epsilon']
+    self.alpha = args['alpha']
+    self.gamma = args['gamma']
+    self.numTraning = args['numTraining']
 
   def getQValue(self, state, action):
     """
@@ -115,7 +118,7 @@ class QLearningAgent(CaptureAgent):
       terminal state, you should return a value of 0.0.
     """
     possibleStateQValues = util.Counter()
-    for action in self.getLegalActions(state):
+    for action in state.getLegalActions(self.index):
       possibleStateQValues[action] = self.getQValue(state, action)
 
     if len(possibleStateQValues) > 0:
@@ -143,7 +146,9 @@ class QLearningAgent(CaptureAgent):
       if value == best_value:
         best_actions.append(action)
 
-    return random.choice(best_actions)
+    chosen_action = random.choice(best_actions)
+
+    return chosen_action
 
   def getAction(self, state):
     """
@@ -157,7 +162,7 @@ class QLearningAgent(CaptureAgent):
       HINT: To pick randomly from a list, use random.choice(list)
     """
     # Pick Action
-    legalActions = state.getLegalActions(self.index)
+    legalActions = state.getLegalActions( self.index )
     action = None
 
     if len(legalActions) > 0:
@@ -178,7 +183,7 @@ class QLearningAgent(CaptureAgent):
       it will be called on your behalf
     """
     self.qValues[(state, action)] = self.getQValue(state, action) + self.alpha * (
-            reward + self.discount * self.getValue(nextState) - self.getQValue(state, action))
+            reward + self.gamma * self.getValue(nextState) - self.getQValue(state, action))
 
   def getPolicy(self, state):
     return self.computeActionFromQValues(state)
@@ -190,7 +195,7 @@ class QLearningAgent(CaptureAgent):
 class PacmanQAgent(QLearningAgent):
   "Exactly the same as QLearningAgent, but with different default parameters"
 
-  def __init__(self, index, timeForComputing = .1, epsilon=0.05,gamma=0.8,alpha=0.2, numTraining=0, **args):
+  def __init__(self, index, timeForComputing = .1, epsilon=0.2,gamma=0.9,alpha=0.05, numTraining=0, **args):
     """
     These default parameters can be changed from the pacman.py command line.
     For example, to change the exploration rate, try:
@@ -205,7 +210,6 @@ class PacmanQAgent(QLearningAgent):
     args['gamma'] = gamma
     args['alpha'] = alpha
     args['numTraining'] = numTraining
-    self.index = 0  # This is always Pacman
     QLearningAgent.__init__(self, index, timeForComputing,**args)
 
   def getAction(self, state):
@@ -215,9 +219,9 @@ class PacmanQAgent(QLearningAgent):
     method.
     """
     action = QLearningAgent.getAction(self,state)
+
     #self.doAction(state,action)
     return action
-
 
 class ApproximateQAgent(PacmanQAgent):
   """
@@ -227,10 +231,31 @@ class ApproximateQAgent(PacmanQAgent):
      and update.  All other QLearningAgent functions
      should work as is.
   """
+  tip = 0
   def __init__(self, index, timeForComputing = .1,extractor='SimpleExtractor', **args):
     self.featExtractor = util.lookup(extractor, globals())()
+
     PacmanQAgent.__init__(self, index, timeForComputing,**args)
     self.weights = util.Counter()
+    if ApproximateQAgent.tip == 0:
+        self.type = "Defence"
+        ApproximateQAgent.tip+=1
+        # self.weights = {'invaderDistance' : -1,
+        #                 'numInvaders': -1,
+        #                 'agent-food': 20,
+        #                 'scared' : -1}
+
+    else:
+        self.type = "Offense"
+
+        # self.weights = {"carrying-food": 5,
+        #                 'num-food': 10,
+        #                 "eats-food": 10,
+        #                 'distanceToFood': -1,
+        #                 'distanceToGhost': 0.3,
+        #                 "enable-eating": 10,
+        #                 "#-of-ghosts-1-step-away": -2,
+        #                 "eaten": -10}
 
   def getWeights(self):
     return self.weights
@@ -243,23 +268,34 @@ class ApproximateQAgent(PacmanQAgent):
     qValue = 0.0
     features = self.featExtractor.getFeatures(state, action, self)
     for key in features.keys():
-      qValue += (self.weights[key] * features[key])
+          qValue += (self.weights[key] * features[key])
+
     return qValue
 
   def update(self, state, action, nextState, reward):
     """
        Should update your weights based on transition
     """
-    features = self.featExtractor.getFeatures(state, action)
-    diff = self.alpha * ((reward + self.discount * self.getValue(nextState)) - self.getQValue(state, action))
+    features = self.featExtractor.getFeatures(state, action,self)
+
+    diff = self.alpha * ((reward + self.gamma * self.getValue(nextState)) - self.getQValue(state, action))
+
     for feature in features.keys():
       self.weights[feature] = self.weights[feature] + diff * features[feature]
+
 
   def final(self, state):
     "Called at the end of each game."
     # call the super-class final method
     PacmanQAgent.final(self, state)
-
+    self.numTraning += 1
+    print(self.type)
+    print(self.weights)
+    if not self.type == "Defence":
+      print("Reward: " + str(state.reward))
+      if state.reward > 0:
+        print("Won!!!!!!!!!!")
+      print("Number of Training: " + str(self.numTraning) + "\n")
     # did we finish training?
     # if self.episodesSoFar == self.numTraining:
     #   # you might want to print your weights here for debugging

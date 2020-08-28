@@ -16,6 +16,7 @@
 
 from game import Directions, Actions
 import util
+import math
 
 class FeatureExtractor:
     def getFeatures(self, state, action, agent):
@@ -74,30 +75,68 @@ class SimpleExtractor(FeatureExtractor):
 
     def getFeatures(self, state, action, agent):
         # extract the grid of food and wall locations and get the ghost locations
+        previuse_state = state
+        myPState = state.getAgentState(agent.index)
+        state = state.generateSuccessor(agent.index, action)
         food = agent.getFood(state)
+        myState = state.getAgentState(agent.index)
+        myPos = myState.getPosition()
         walls = state.getWalls()
-        ghosts = state.getOpponentPosition(agent)['g']
 
         features = util.Counter()
 
-        features["bias"] = 1.0
+        enemies = [state.getAgentState(i) for i in agent.getOpponents(state)]
+        invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+        ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None]
 
+        #features['moves'] = len(state.getLegalActions(agent.index))
+
+        if agent.type == "Defence":
+            if len(invaders) > 0:
+                dists = [agent.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+                features['invaderDistance'] = min(dists) / 10
+                features['numInvaders'] = len(invaders)
+                features['scared'] = myState.scaredTimer / 5
+
+                foodDefend = agent.getFoodYouAreDefending(state).asList()
+                features['agent-food'] = len(foodDefend) / 10
+
+        if(myPState.isPacman and not myState.isPacman) and myPos == myState.start.pos:
+            features['eaten'] = 1.0
         # compute the location of pacman after he takes the action
         x, y = state.getAgentPosition(agent.index)
+
+        myPos = (x,y)
+
+        foodList = agent.getFood(state).asList()
+        foodNumb = len(foodList)
+        if agent.type == "Offense":
+            features['num-food'] = -foodNumb / 10
+
+
+        x, y = myPos
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
         # count the number of ghosts 1-step away
-        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.getLegalNeighbors(g, walls) for g in ghosts)
+        ghostAround = sum((next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghostDefenders)
 
-        # if there is no danger of ghosts then add the food feature
-        if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
-            features["eats-food"] = 1.0
+        if not ghostAround and food[next_x][next_y]:
+                features["eats-food"] = 1.0
 
-        dist = closestFood((next_x, next_y), food, walls)
-        if dist is not None:
-            # make the distance a number less than one otherwise the update
-            # will diverge wildly
-            features["closest-food"] = float(dist) / (walls.width * walls.height)
-        features.divideAll(10.0)
+        # features["carrying-food"] = myState.numCarrying
+        foodListPrevouse = agent.getFood(previuse_state).asList()
+        eaten = len(foodListPrevouse) - foodNumb
+        if eaten == 1:
+            features["eats-food"] = 2
+        if len(foodList) > 0 and eaten <= 0:
+            minDistance = min([agent.getMazeDistance(myPos, food) for food in foodList])
+            features['distanceToFood'] = minDistance / 10000
+        if len(ghostDefenders) > 0 and myState.isPacman:
+            minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])
+            if minDistance > 1:
+                minDistance = 1
+            features['distanceToGhost'] = minDistance
+
+
         return features

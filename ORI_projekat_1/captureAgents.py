@@ -88,6 +88,11 @@ class CaptureAgent(Agent):
     # Access to the graphics
     self.display = None
 
+    self.type = None
+
+  def update(self, state, action, nextState, reward):
+    pass
+
   def registerInitialState(self, gameState):
     """
     This method handles the initial setup of the

@@ -18,6 +18,7 @@ from game import Directions, Actions
 import util
 import math
 
+
 class FeatureExtractor:
     def getFeatures(self, state, action, agent):
         """
@@ -27,11 +28,13 @@ class FeatureExtractor:
         """
         util.raiseNotDefined()
 
+
 class IdentityExtractor(FeatureExtractor):
     def getFeatures(self, state, action, agent):
         feats = util.Counter()
-        feats[(state,action)] = 1.0
+        feats[(state, action)] = 1.0
         return feats
+
 
 class CoordinateExtractor(FeatureExtractor):
     def getFeatures(self, state, action, agent):
@@ -41,6 +44,7 @@ class CoordinateExtractor(FeatureExtractor):
         feats['y=%d' % state[0]] = 1.0
         feats['action=%s' % action] = 1.0
         return feats
+
 
 def closestFood(pos, food, walls):
     """
@@ -60,9 +64,10 @@ def closestFood(pos, food, walls):
         # otherwise spread out from the location to its neighbours
         nbrs = Actions.getLegalNeighbors((pos_x, pos_y), walls)
         for nbr_x, nbr_y in nbrs:
-            fringe.append((nbr_x, nbr_y, dist+1))
+            fringe.append((nbr_x, nbr_y, dist + 1))
     # no food found
     return None
+
 
 class SimpleExtractor(FeatureExtractor):
     """
@@ -89,13 +94,12 @@ class SimpleExtractor(FeatureExtractor):
         invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
         ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None]
 
-
-        features['n-return'] = myState.numReturned
-        features['n-carying'] = myState.numCarrying
+        features['n-returned'] = myState.numReturned
+        features['n-carrying'] = myState.numCarrying
 
         features['scared'] = myState.scaredTimer / 5
 
-        if agent.type == "Defence":
+        if not myPState.isPacman:
             if len(invaders) > 0:
                 dists = [agent.getMazeDistance(myPos, a.getPosition()) for a in invaders]
                 features['invaderDistance'] = min(dists) / 10
@@ -104,18 +108,17 @@ class SimpleExtractor(FeatureExtractor):
             foodDefend = agent.getFoodYouAreDefending(state).asList()
             features['agent-food'] = len(foodDefend) / 10
 
-        if(myPState.isPacman and not myState.isPacman) and myPos == myState.start.pos:
-            features['eaten'] = 1.0
+        if (myPState.isPacman and not myState.isPacman) and myPos == myState.start.pos:
+            features['agent-eaten'] = 1.0
         # compute the location of pacman after he takes the action
         x, y = state.getAgentPosition(agent.index)
 
-        myPos = (x,y)
+        myPos = (x, y)
 
         foodList = agent.getFood(state).asList()
         foodNumb = len(foodList)
         if agent.type == "Offense":
             features['num-food'] = -foodNumb / 10
-
 
         x, y = myPos
         dx, dy = Actions.directionToVector(action)
@@ -125,10 +128,9 @@ class SimpleExtractor(FeatureExtractor):
         ghostAround = sum((next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghostDefenders)
 
         if not ghostAround and food[next_x][next_y]:
-                features["eats-food"] = 1.0
+            features["eats-food"] = 1.0
         elif ghostAround and myState.isPacman:
             features['rip'] = 10
-
 
         foodListPrevouse = agent.getFood(previuse_state).asList()
         eaten = len(foodListPrevouse) - foodNumb
@@ -136,11 +138,12 @@ class SimpleExtractor(FeatureExtractor):
             features["eats-food"] = 2
         if len(foodList) > 0 and eaten <= 0:
             minDistance = min([agent.getMazeDistance(myPos, food) for food in foodList])
-            features['distanceToFood'] = minDistance / 10
+            features['distanceToFood'] = (50 - minDistance) / 10
         if len(ghostDefenders) > 0 and myState.isPacman:
             minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])
 
+            # old
             features['distanceToGhost'] = (50 - minDistance) / 10
-
+            # features['distanceToGhost'] = minDistance / 10
 
         return features

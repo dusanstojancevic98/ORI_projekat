@@ -1,23 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.datasets import make_classification
 
-DIM = 10
-STEPS = 100
+DIM = 50
+STEPS = 10
+# COLS = 17
 COLS = 17
 np.random.seed(1)
+DIST = 30
+ALPHA_MAX = 0.6
+
 
 def euclid_distance(x, y):
-    return np.linalg.norm(x - y)
+    return np.sqrt(np.sum(np.square(x - y)))
 
 
-def manhatn(x, y):
+def manhatn(x, y, x1, y1):
     dist = 0
-    for i in range(len(x)):
-        dist += abs(x[i] - y[i])
+    dist += abs(x - x1)
+    dist += abs(y - y1)
     return dist
 
 
-def load_data(skip=0):
+def euclid(x, y, x1, y1):
+    return (x - x1) ** 2 + (y - y1) ** 2
+
+
+def load_data(skip=0, cols=range(COLS)):
     empty = 0
     loaded = 0
     with open("credit_card_data.csv") as f:
@@ -41,8 +50,8 @@ def load_data(skip=0):
         print("LOADED: {}".format(loaded))
         data = np.empty((len(new_lines), COLS))
         for i, line in enumerate(new_lines):
-            for j in range(0, COLS):
-                data[i][j] = float(line[j + 1])
+            for j in range(len(cols)):
+                data[i][j] = float(line[cols[j]])
         return data
 
 
@@ -75,53 +84,81 @@ def standardize_data(data):
     return data
 
 
-def train(max_alpha=0.6):
-    x = load_data(skip=1)
-    x = standardize_data(x)
-    weights = np.random.random((DIM * DIM, COLS))
-    for step in range(STEPS):
-        alpha = max_alpha * (1 - step / STEPS)
-        print("========= STEP: {} alpha: {} =========".format(step, alpha))
-        for i, row in enumerate(x):
-            min_index = None
-            minim = np.inf
-            for j in range(DIM * DIM):
-                dist = euclid_distance(weights[j], row)
-                if dist < minim:
-                    # print("###### MIN CHANGED: {} -> {} ######".format(min_index, j))
-                    min_index = j
-                    minim = dist
-            if i % 100 == 0:
-                print("------ row: {}, min:{} ------".format(i, min_index))
-            sub = x[i] - weights[min_index]
-            new_weight = weights[min_index] + alpha * sub
-            # print("SUB: {}, NW:{}".format(sub, new_weight))
-            weights[min_index] = new_weight
+def find_nearest(row, weights):
+    min_j = None
+    min_k = None
+    minim = np.inf
+    for j in range(DIM):
+        for k in range(DIM):
+            dist = euclid_distance(weights[j][k], row)
+            if dist < minim:
+                # print("###### MIN CHANGED: {} -> {} ######".format(min_index, j))
+                min_j = j
+                min_k = k
+                minim = dist
+    return min_j, min_k
 
-    print(weights)
 
+def show_u_matrix(weights, fig, step, vec):
     u_matrix = np.zeros(shape=(DIM, DIM), dtype=np.float64)
     for i in range(DIM):
         for j in range(DIM):
-            v = weights[i * DIM + j]
+            v = weights[i][j]
             sum_dists = 0.0
             ct = 0
             if i - 1 >= 0:  # above
-                sum_dists += euclid_distance(v, weights[(i - 1) * DIM + j])
+                sum_dists += euclid_distance(v, weights[i - 1][j])
                 ct += 1
             if i + 1 <= DIM - 1:  # below
-                sum_dists += euclid_distance(v, weights[(i + 1) * DIM + j])
+                sum_dists += euclid_distance(v, weights[i + 1][j])
                 ct += 1
             if j - 1 >= 0:  # left
-                sum_dists += euclid_distance(v, weights[i * DIM + j - 1])
+                sum_dists += euclid_distance(v, weights[i][j - 1])
                 ct += 1
             if j + 1 <= DIM - 1:  # right
-                sum_dists += euclid_distance(v, weights[i * DIM + j + 1])
+                sum_dists += euclid_distance(v, weights[i][j + 1])
                 ct += 1
             u_matrix[i][j] = sum_dists / ct
+    # fig.add_subplot(5, 4, (step % 5)*4 + vec % 4+1)
+    # plt.ion()
     plt.imshow(u_matrix, cmap='gray')  # black = close = clusters
+    plt.show()
+
+
+def train(weights=None):
+    fig = plt.figure(figsize=(8, 8))
+    # x, _ = make_classification(n_samples=1000, n_features=2, n_informative=2, n_redundant=0, n_clusters_per_class=1,
+    #                            random_state=4)
+
+    x = load_data(skip=1, cols=range(1, 18))
+    x = standardize_data(x)
+    print(x)
+    if weights is None:
+        weights = np.random.random((DIM, DIM, COLS))
+    for step in range(STEPS):
+        percent = 1 - step / STEPS
+        alpha = ALPHA_MAX * percent
+        curr_range = percent * DIST
+        print("========= STEP: {} alpha: {} range: {}=========".format(step, alpha, range))
+        for i, row in enumerate(x):
+            min_j, min_k = find_nearest(row, weights)
+            if i % 1000 == 0:
+                print("------ row: {}, min:{}, {} ------".format(i, min_j, min_k))
+                show_u_matrix(weights, fig, step, i)
+            for j in range(DIM):
+                for k in range(DIM):
+                    if euclid(j, k, min_j, min_k) < curr_range:
+                        # print("SUB: {}, NW:{}".format(sub, new_weight))
+                        weights[j][k] = weights[j][k] + alpha * (row - weights[j][k])
+        show_u_matrix(weights, fig, step, STEPS)
+    np.save("weights", weights)
+    print(weights)
+
+    show_u_matrix(weights, fig, STEPS, DIM * DIM)
+
     plt.show()
 
 
 if __name__ == '__main__':
     train()
+    # train2()

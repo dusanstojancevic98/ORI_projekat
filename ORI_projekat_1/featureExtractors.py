@@ -89,17 +89,20 @@ class SimpleExtractor(FeatureExtractor):
         invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
         ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None]
 
-        #features['moves'] = len(state.getLegalActions(agent.index))
+
+        features['n-return'] = myState.numReturned
+        features['n-carying'] = myState.numCarrying
+
+        features['scared'] = myState.scaredTimer / 5
 
         if agent.type == "Defence":
             if len(invaders) > 0:
                 dists = [agent.getMazeDistance(myPos, a.getPosition()) for a in invaders]
                 features['invaderDistance'] = min(dists) / 10
                 features['numInvaders'] = len(invaders)
-                features['scared'] = myState.scaredTimer / 5
 
-                foodDefend = agent.getFoodYouAreDefending(state).asList()
-                features['agent-food'] = len(foodDefend) / 10
+            foodDefend = agent.getFoodYouAreDefending(state).asList()
+            features['agent-food'] = len(foodDefend) / 10
 
         if(myPState.isPacman and not myState.isPacman) and myPos == myState.start.pos:
             features['eaten'] = 1.0
@@ -123,20 +126,21 @@ class SimpleExtractor(FeatureExtractor):
 
         if not ghostAround and food[next_x][next_y]:
                 features["eats-food"] = 1.0
+        elif ghostAround and myState.isPacman:
+            features['rip'] = 10
 
-        # features["carrying-food"] = myState.numCarrying
+
         foodListPrevouse = agent.getFood(previuse_state).asList()
         eaten = len(foodListPrevouse) - foodNumb
         if eaten == 1:
             features["eats-food"] = 2
         if len(foodList) > 0 and eaten <= 0:
             minDistance = min([agent.getMazeDistance(myPos, food) for food in foodList])
-            features['distanceToFood'] = minDistance / 10000
+            features['distanceToFood'] = minDistance / 10
         if len(ghostDefenders) > 0 and myState.isPacman:
             minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])
-            if minDistance > 1:
-                minDistance = 1
-            features['distanceToGhost'] = minDistance
+
+            features['distanceToGhost'] = (50 - minDistance) / 10
 
 
         return features

@@ -843,9 +843,9 @@ def readCommand( argv ):
   args = dict()
 
   # Choose a display format
-  #if options.pygame:
+  # if options.pygame:
   #   import pygameDisplay
-  #    args['display'] = pygameDisplay.PacmanGraphics()
+  #   args['display'] = pygameDisplay.PacmanGraphics()
   if options.textgraphics:
     import textDisplay
     args['display'] = textDisplay.PacmanGraphics()

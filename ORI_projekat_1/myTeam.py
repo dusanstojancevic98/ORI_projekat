@@ -147,9 +147,8 @@ class QLearningAgent(CaptureAgent):
             # print("Act, val: {}, {}".format(action, value))
             if value == best_value:
                 best_actions.append(action)
-        if len(best_actions) == 0:
-            print("best actions: {} \n best_value:{}:\n possiblesval: {}".format(best_actions, best_value,
-                                                                                 possibleStateQValues))
+        # print("best actions: {} \n best_value:{}:\n possiblesval: {}".format(best_actions, best_value,
+        #                                                                          possibleStateQValues))
         chosen_action = random.choice(best_actions)
 
         return chosen_action
@@ -246,22 +245,10 @@ class ApproximateQAgent(PacmanQAgent):
         if ApproximateQAgent.tip == 0:
             self.type = "Defence"
             ApproximateQAgent.tip += 1
-            # self.weights = {'invaderDistance' : -1,
-            #                 'numInvaders': -1,
-            #                 'agent-food': 20,
-            #                 'scared' : -1}
+
 
         else:
             self.type = "Offense"
-
-            # self.weights = {"carrying-food": 5,
-            #                 'num-food': 10,
-            #                 "eats-food": 10,
-            #                 'distanceToFood': -1,
-            #                 'distanceToGhost': 0.3,
-            #                 "enable-eating": 10,
-            #                 "#-of-ghosts-1-step-away": -2,
-            #                 "eaten": -10}
 
     def getWeights(self):
         return self.weights
@@ -273,9 +260,13 @@ class ApproximateQAgent(PacmanQAgent):
         """
         qValue = 0.0
         features = self.featExtractor.getFeatures(state, action, self)
+        # if self.type == "Offense":
+        #     print(self.weights)
         for key in features.keys():
             qValue += (self.weights[key] * features[key])
 
+        # if self.type == "Offense":
+        #     print("Q: {}".format(qValue))
         return qValue
 
     def update(self, state, action, nextState, reward):
@@ -285,7 +276,9 @@ class ApproximateQAgent(PacmanQAgent):
         features = self.featExtractor.getFeatures(state, action, self)
 
         diff = self.alpha * ((reward + self.gamma * self.getValue(nextState)) - self.getQValue(state, action))
-        # print("Diff: {}".format(diff))
+
+        # if self.type == "Offense":
+        #     print("Diff: {}".format(diff))
         for feature in features.keys():
             self.weights[feature] = self.weights[feature] + diff * features[feature]
 
@@ -296,9 +289,6 @@ class ApproximateQAgent(PacmanQAgent):
         self.numTraning += 1
         print(self.type)
         print(self.weights)
-        filename = "weights-" + str(self.numTraning) + "-" + str(self.type) + "-" + datetime.today().strftime("%d-%m-%Y %H %M %S")
-        with open(filename, "w") as f:
-            f.writelines(self.weights)
 
         if not self.type == "Defence":
             print("Reward: " + str(state.reward))

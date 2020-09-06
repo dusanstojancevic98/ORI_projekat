@@ -753,27 +753,26 @@ class Game:
             foodTeamDif = (len(foodDefend1) - len(foodDefend2))
 
             if hasFood:
-                eaten = 100
+                eaten = 50
                 # print("EATEN")
             else:
                 eaten = 0
 
             if myState.isPacman:
-                penalty = 0
+                attackPen = 0
             else:
-                # penalty = -10
-                penalty = 10
+                attackPen = -1
 
             enemies = [previous_state.getAgentState(i) for i in agent.getOpponents(previous_state)]
             killed = [a for a in enemies if (
-                        a.isPacman and not myState.isPacman or a.scaredTimer > 0 and myState.isPacman) and a.getPosition() == myPos]
+                    a.isPacman and not myState.isPacman or a.scaredTimer > 0 and myState.isPacman) and a.getPosition() == myPos]
             if len(killed) > 0:
                 points = sum(a.numCarrying for a in killed)
-                ateInvader = 100 + 20 *points
+                ateInvader = 100 + 20 * points
                 # print("KILLED")
 
             if len(foodDefend1) < 10:
-                defendPen = -2
+                defendPen = -20
             else:
                 defendPen = 0
             # penalty -= len(foodList1)/5
@@ -782,29 +781,28 @@ class Game:
             scoreDiff = self.state.getScore() - previous_state.getScore()
             if scoreDiff > 0:
                 print("Promena na bolje")
-                score = 100 * scoreDiff
+            score = 100 * scoreDiff
 
             agent_eaten = 0
-            # if agent.type == "Offense":
-            #     print(myPPos, myPos)
-            if myPPos == myState.start.getPosition():
-                agent_eaten = -100 - 200 * myPState.numCarrying ** 2
-                print("POJEDEN SA POENIMA")
+
+            if myPos == myState.start.getPosition():
+                agent_eaten = -100 - 20 * myPState.numCarrying
+                # print("POJEDEN")
+
             x = myState.numCarrying - 10
-            # carry = 0
-            carry = -(x ** 2) - x + 90
+            carry = 0
+            # carry = -(x ** 2) - x + 90
 
-            print()
-
-            mul = 0
             if agent.type == "Offense":
-                mul = agent.getScore(self.state) - previous_score + carry + myState.numReturned
-                reward = 50 * mul + penalty + agent_eaten + eaten + ateInvader + score
-                print("mul: {}, penalty: {}, carry: {}, ret: {}, agent_eaten: {}, eaten: {}, ateInvader: {}, score: {}".format(mul, penalty, carry, myState.numReturned, agent_eaten, eaten, ateInvader, score))
-                print("Reward, {}:  {}".format(agent.type, reward))
+                reward = attackPen + agent_eaten + eaten + ateInvader + score + carry + myState.numReturned
+                # print(action)
+                # print(
+                #     "penalty: {}, carry: {}, ret: {}, agent_eaten: {}, eaten: {}, ateInvader: {}, score: {}".format(
+                #         attackPen, carry, myState.numReturned, agent_eaten, eaten, ateInvader, score))
+                # print("Reward, {}:  {}".format(agent.type, reward))
             else:
-                mul = agent.getScore(self.state) - previous_score  + ateInvader
-                reward = 10 * mul + 2 * foodTeamDif + defendPen + agent_eaten + eaten
+                reward = 2 * foodTeamDif + defendPen + agent_eaten + eaten + ateInvader
+                # print("Reward, {}:  {}".format(agent.type, reward))
             # print("Reward, {}:  {}".format(agent.type, reward))
 
             agent.update(previous_state, action, self.state, reward)
@@ -828,10 +826,10 @@ class Game:
         for agentIndex, agent in enumerate(self.agents):
             if agent.type == "Defence":
                 agent.update(last_state[agentIndex], last_action[agentIndex], last_nState[agentIndex],
-                             self.state.getScore() * 10)
+                             self.state.getScore() * 100)
             if agent.type == "Offense":
                 agent.update(last_state[agentIndex], last_action[agentIndex], last_nState[agentIndex],
-                             self.state.getScore() * 10)
+                             self.state.getScore() * 100)
             if "final" in dir(agent):
                 try:
                     self.state.reward = self.state.getScore()

@@ -1,5 +1,7 @@
 import numpy as np
 
+COLS = 17
+
 
 def euclid_distance(x, y):
     return np.sqrt(np.sum(np.square(x - y)))

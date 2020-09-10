@@ -735,77 +735,96 @@ class Game:
             else:
                 self.state = self.state.generateSuccessor(agentIndex, action)
 
-            last_action[agentIndex] = action
-            last_nState[agentIndex] = self.state
-            foodList1 = agent.getFood(self.state).asList()
-            foodList2 = agent.getFood(previous_state).asList()
-            foodDefend1 = agent.getFoodYouAreDefending(self.state).asList()
-            foodDefend2 = agent.getFoodYouAreDefending(previous_state).asList()
-            myState = self.state.getAgentState(agent.index)
-            myPState = previous_state.getAgentState(agent.index)
-            myPPos = myPState.getPosition()
-            myPos = myState.getPosition()
+            if agent.type is not None:
+                last_action[agentIndex] = action
+                last_nState[agentIndex] = self.state
+                foodDefend1 = agent.getFoodYouAreDefending(self.state).asList()
+                foodDefend2 = agent.getFoodYouAreDefending(previous_state).asList()
+                myState = self.state.getAgentState(agent.index)
+                myPState = previous_state.getAgentState(agent.index)
+                myPPos = myPState.getPosition()
+                myPos = myState.getPosition()
 
-            hasFood = agent.getFood(previous_state)[int(myPos[0])][int(myPos[1])]
+                type = agent.type
+                capsules = agent.getCapsules(previous_state)
+                hasFood = agent.getFood(previous_state)[int(myPos[0])][int(myPos[1])]
+                hasCapsule = len([c for c in capsules if myPos == c]) > 0
 
-            ateInvader = 0
-            # foodDif = -(len(foodList2) - len(foodList1))
-            foodTeamDif = (len(foodDefend1) - len(foodDefend2))
+                ateInvader = 0
+                # foodDif = -(len(foodList2) - len(foodList1))
+                foodTeamDif = (len(foodDefend1) - len(foodDefend2))
 
-            if hasFood:
-                eaten = 50
-                # print("EATEN")
-            else:
-                eaten = 0
+                if hasFood:
+                    eaten = 100
+                    # print("EATEN")
+                elif hasCapsule:
+                    eaten = 200
+                    # eaten = 0
+                else:
+                    eaten = 0
 
-            if myState.isPacman:
-                attackPen = 0
-            else:
-                attackPen = -1
+                # attackPen = 0
+                if not myState.isPacman:
+                    attackPen = -50
 
-            enemies = [previous_state.getAgentState(i) for i in agent.getOpponents(previous_state)]
-            killed = [a for a in enemies if (
-                    a.isPacman and not myState.isPacman or a.scaredTimer > 0 and myState.isPacman) and a.getPosition() == myPos]
-            if len(killed) > 0:
-                points = sum(a.numCarrying for a in killed)
-                ateInvader = 100 + 20 * points
-                # print("KILLED")
+                enemies = [previous_state.getAgentState(i) for i in agent.getOpponents(previous_state)]
+                killed = [a for a in enemies if (
+                        a.isPacman and not myState.isPacman or a.scaredTimer > 0 and myState.isPacman) and a.getPosition() == myPos]
+                if len(killed) > 0:
+                    points = sum(a.numCarrying for a in killed)
+                    ateInvader = 100 + 20 * points
+                    # if type == "Offense":
+                    #     print("KILLED with {} reward".format(ateInvader))
 
-            if len(foodDefend1) < 10:
-                defendPen = -20
-            else:
-                defendPen = 0
-            # penalty -= len(foodList1)/5
-            #
-            score = 0
-            scoreDiff = self.state.getScore() - previous_state.getScore()
-            if scoreDiff > 0:
-                print("Promena na bolje")
-            score = 100 * scoreDiff
+                if len(foodDefend1) < 20:
+                    defendPen = -20
+                else:
+                    defendPen = 0
+                # penalty -= len(foodList1)/5
+                #
+                score = 0
+                scoreDiff = self.state.getScore() - previous_state.getScore()
+                if scoreDiff > 0:
+                    if type == "Offense":
+                        print("Promena na bolje")
+                    score = 500 * scoreDiff
 
-            agent_eaten = 0
+                agent_eaten = 0
 
-            if myPos == myState.start.getPosition():
-                agent_eaten = -100 - 20 * myPState.numCarrying
-                # print("POJEDEN")
+                # if type == "Offense":
+                #     print("{} -> {}".format(myPos, myPPos))
 
-            x = myState.numCarrying - 10
-            carry = 0
-            # carry = -(x ** 2) - x + 90
+                # if myPos <= (1,2):
+                #     agent_eaten = -100 - 20 * myPState.numCarrying
+                #     if type == "Offense":
+                #         print("POJEDEN")
+                enemies = [self.state.getAgentState(i) for i in agent.getOpponents(self.state)]
+                ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() is not None]
+                if len(ghostDefenders) > 0:
+                    danger = min([agent.getMazeDistance(myPos, a.getPosition()) for a in ghostDefenders])
 
-            if agent.type == "Offense":
-                reward = attackPen + agent_eaten + eaten + ateInvader + score + carry + myState.numReturned
-                # print(action)
-                # print(
-                #     "penalty: {}, carry: {}, ret: {}, agent_eaten: {}, eaten: {}, ateInvader: {}, score: {}".format(
-                #         attackPen, carry, myState.numReturned, agent_eaten, eaten, ateInvader, score))
+                    if danger <= 1:
+                        # agent_eaten = -1000
+                        agent_eaten = -200 - 40 * myPState.numCarrying
+                        # print("POJEDEN")
+
+                x = myState.numCarrying - 10
+                carry = 0
+                # carry = -(x ** 2) - x + 90
+
+                if type == "Offense":
+                    reward = attackPen + agent_eaten + eaten + ateInvader + score + carry
+                    # print(action)
+                    # print(
+                    #     "penalty: {}, carry: {}, ret: {}, agent_eaten: {}, eaten: {}, ateInvader: {}, score: {}".format(
+                    #         attackPen, carry, myState.numReturned, agent_eaten, eaten, ateInvader, score))
+                    # print("Reward, {}:  {}".format(agent.type, reward))
+                else:
+                    reward = 2 * foodTeamDif + defendPen + agent_eaten + eaten + ateInvader
+                    # print("Reward, {}:  {}".format(agent.type, reward))
                 # print("Reward, {}:  {}".format(agent.type, reward))
-            else:
-                reward = 2 * foodTeamDif + defendPen + agent_eaten + eaten + ateInvader
-                # print("Reward, {}:  {}".format(agent.type, reward))
-            # print("Reward, {}:  {}".format(agent.type, reward))
 
-            agent.update(previous_state, action, self.state, reward)
+                agent.update(previous_state, action, self.state, reward)
 
             # Change the display
             self.display.update(self.state.data)

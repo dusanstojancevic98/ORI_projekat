@@ -242,13 +242,15 @@ class ApproximateQAgent(PacmanQAgent):
 
         PacmanQAgent.__init__(self, index, timeForComputing, **args)
         self.weights = util.Counter()
-        if ApproximateQAgent.tip == 0:
+        if ApproximateQAgent.tip % 2 == 0:
             self.type = "Defence"
             ApproximateQAgent.tip += 1
+            # self.weights = {'score': 20.47356009035358, 'agent-food': 38.52028097266377, 'invaderDistance': 25.90204344890279, 'numInvaders': -87.81723216036399, 'distance-ghost': -42.862848199584064, 'n-returned': 4.510724178773814, 'returned': -8.739123250708507, 'rip': -32.841289450028924, 'agent-eaten': -25.22588487404809, 'distance-scared-ghost': 0.14864383729580835, 'eats-food': 46.14520982045911}
 
 
         else:
             self.type = "Offense"
+            # self.weights = {'score': -5.064286088768164, 'agent-food': -11.31883425723904, 'num-food': 8.67516304615496, 'distance-capsule': -5.158073428871487, 'invaderDistance': 29.849231305566832, 'numInvaders': 16.716719210188582, 'distance-ghost': 373.05534720176627, 'n-returned': 66.21598683269255, 'returned': -2.1995965349422844, 'eats-food': 45.87131882469542, 'rip': -20.988655403674606, 'agent-eaten': -4.911390803884702, 'distance-scared-ghost': -4.277345362236672}
 
     def getWeights(self):
         return self.weights
@@ -278,9 +280,17 @@ class ApproximateQAgent(PacmanQAgent):
         diff = self.alpha * ((reward + self.gamma * self.getValue(nextState)) - self.getQValue(state, action))
 
         # if self.type == "Offense":
-        #     print("Diff: {}".format(diff))
+        #     print("Reward: {}".format(reward))
+        #     print(" Off Diff: {}".format(diff))
+        #     print(self.weights)
+        #     print(features)
+        # else:
+        #     print(" Def Diff: {}".format(diff))
+
+
         for feature in features.keys():
             self.weights[feature] = self.weights[feature] + diff * features[feature]
+
 
     def final(self, state):
         "Called at the end of each game."

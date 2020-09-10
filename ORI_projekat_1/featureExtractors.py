@@ -84,20 +84,31 @@ class SimpleExtractor(FeatureExtractor):
         myPState = state.getAgentState(agent.index)
         state = state.generateSuccessor(agent.index, action)
         food = agent.getFood(state)
+        pfood = agent.getFood(previuse_state)
+        foodDefend = agent.getFoodYouAreDefending(state).asList()
+
         myState = state.getAgentState(agent.index)
         myPos = myState.getPosition()
+        myPPos = myPState.getPosition()
         walls = state.getWalls()
 
         features = util.Counter()
 
         enemies = [state.getAgentState(i) for i in agent.getOpponents(state)]
         invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
-        ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None]
+        ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None and a.scaredTimer == 0]
+        ghostsScared = [a for a in enemies if not a.isPacman and a.getPosition() != None and a.scaredTimer > 0]
+        scaredTimer = myState.scaredTimer
 
-        features['n-returned'] = myState.numReturned / 10
-        features['n-carrying'] = - myState.numCarrying / 10
+        carry = myState.numCarrying
 
-        features['scared'] = myState.scaredTimer / 10
+        # old
+        # features['n-returned'] = myState.numReturned / 10
+        # features['n-carrying'] = myState.numCarrying / 10
+        # new
+        # features['n-returned'] = (myState.numReturned + 1) / 10
+
+        features["score"] = state.getScore()
 
         # features['legal-actions'] = len(previuse_state.getLegalActions(agent.index))
 
@@ -105,10 +116,13 @@ class SimpleExtractor(FeatureExtractor):
 
         if not myPState.isPacman:
             if len(invaders) > 0:
-                features['invaderDistance'] = - min(distsInv) / 100
+                if scaredTimer > 0:
+
+                    features['invaderDistance'] = (min(distsInv) + 1) / 100
+                else:
+                    features['invaderDistance'] = - (min(distsInv) + 1) / 100
                 features['numInvaders'] = len(invaders)
 
-            foodDefend = agent.getFoodYouAreDefending(state).asList()
             features['agent-food'] = len(foodDefend) / 10
 
         if (myPState.isPacman and not myState.isPacman) and myPos == myState.start.pos:
@@ -118,50 +132,111 @@ class SimpleExtractor(FeatureExtractor):
 
         myPos = (x, y)
 
-        foodList = agent.getFood(state).asList()
+        foodList = food.asList()
+        capsules = agent.getCapsules(state)
         foodNumb = len(foodList)
+        pfoodList = pfood.asList()
+        pfoodNumb = len(pfoodList)
+
         if agent.type == "Offense":
-            features['num-food'] = -foodNumb / 10
+            features['num-food'] = -  foodNumb / 10
 
         x, y = myPos
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
         # count the number of ghosts 1-step away
-        ghostAround = sum((next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghostDefenders)
+        legal = len(Actions.getLegalNeighbors(myPos, walls))
+
+        ghostsAround = [g for g in ghostDefenders if agent.getMazeDistance(g.getPosition(), myPos) <= 1]
+        if len(ghostsAround) > 0:
+            ghostAround = True
+            legal -= len(ghostsAround)
+        else:
+            ghostAround = False
+
+        invadersAround = [i for i in invaders if agent.getMazeDistance(i.getPosition(), myPos) <= 1]
+        if len(invadersAround) > 0:
+            invaderAround = True
+            if myState.scaredTimer > 0 and not myState.isPacman:
+                legal -= len(invadersAround)
+        else:
+            invaderAround = False
+
+        # if myState.isPacman:
+        #     features["legal"] = legal / 2
 
         if not ghostAround and food[next_x][next_y]:
+            # print("JEO SAM MAMA BEZ DUHOVA")
             features["eats-food"] = 1.0
-        elif ghostAround and myState.isPacman:
-            features['rip'] = 5
 
-        foodListPrevouse = agent.getFood(previuse_state).asList()
-        eaten = len(foodListPrevouse) - foodNumb
+        if myPState.isPacman and not myState.isPacman and agent.getMazeDistance(myPos,
+                                                                                myState.start.pos) > 3 and agent.getMazeDistance(
+            myPPos, myState.start.pos) > 3:
+            features["returned"] = 2
+            # print("PRESAO")
+
+        eaten = pfoodNumb - foodNumb
         if eaten == 1:
+            # print("JEO SAM MAMA")
             features["eats-food"] = 2
+
+        food_dist = -1
+        ghost_dist = -1
 
         if len(foodList) > 0 and agent.type == "Offense":
             minDistance = min([agent.getMazeDistance(myPos, food) for food in foodList])
+
             # features['distanceToFood'] = (50 - minDistance) / 10
             # features['distanceToFood'] = minDistance / 10
-            features['distanceToFood'] = - minDistance / 100
+            # features['distanceToFood'] = 100/(minDistance + 1)**2
+
+            # features['n-carrying'] = carry / 10
+
+            # features['distanceToFood'] = (minDistance / 100) + (carry+1)**2
+            if carry > 5:
+                features['distance-food'] = - (minDistance + 1) / 100
+            else:
+                features['distance-food'] = (minDistance + 1) / 100
+
+            # food_dist = minDistance / 100
+
             # print("DTF: {}".format(minDistance))
+            if len(capsules) > 0:
+                minDistanceCapsules = min([agent.getMazeDistance(myPos, c) for c in capsules])
+                features['distance-capsule'] = (minDistanceCapsules + 1) / 100
+
         ghost_number = len(ghostDefenders)
-        if ghost_number > 0 and myState.isPacman:
-            minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])
+        start_distance = 0
 
-            # old
-            # features['distanceToGhost'] = (50 - minDistance) / 10
-            features['distanceToGhost'] = minDistance / 100
-            features['ghost-number'] = ghost_number
-            # features['distanceToGhost'] = 1000 / (minDistance + 1)
-            # print("DTG: {}".format(features["distanceToGhost"]))
+        if agent.type == "Offense":
+            # features["distance-start"] = - (agent.getMazeDistance(myPos, myPState.start.pos)) * carry/ 1000
+            if carry > 0:
+                features["dist-start"] = (agent.getMazeDistance(myPos, myPState.start.pos)) / 100
 
-        if myPState.scaredTimer > 0:
-            features['distanceToInvader'] = - min(distsInv) / 100
+            if ghost_number > 0:
+                minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])
 
-            # print("DTI: {}".format(features["distanceToInvader"]))
-        #
+                # old
+                # features['distanceToGhost'] = (50 - minDistance) / 10
+                # features['distanceToGhost'] = 4 / (minDistance + 1)
+
+                features['distance-ghost'] = (minDistance + 1) / 100
+                # ghost_dist = (100 - minDistance) / 100
+                # features['ghost-number'] = ghost_number
+                # features['distanceToGhost'] = 1000 / (minDistance + 1)
+                # print("DTG: {}".format(features["distanceToGhost"]))
+
+                # print("DTI: {}".format(features["distanceToInvader"]))
+                if len(ghostsScared) > 0:
+                    minDistanceScared = min(
+                        [agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostsScared])
+                    features['distance-scared-ghost'] = (minDistanceScared + 1) / 100
+
+        # features["maximus"] = max(food_dist, ghost_dist) + carry * start_distance
+
         # if agent.type == "Offense":
-        #     print(features)
+        #     print("F ", features)
+        # print(food_dist, 1 / ghost_dist)
+
         return features

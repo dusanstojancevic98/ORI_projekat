@@ -224,7 +224,8 @@ class SimpleExtractor(FeatureExtractor):
                 # features['distanceToGhost'] = (50 - minDistance) / 10
                 # features['distanceToGhost'] = 4 / (minDistance + 1)
 
-                features['distance-ghost'] = (minDistance + 1) / 100
+                # features['distance-ghost'] = (minDistance + 1) / 100
+                features['distance-ghost'] = (100 - minDistance) / 100
                 # ghost_dist = (100 - minDistance) / 100
                 # features['ghost-number'] = ghost_number
                 # features['distanceToGhost'] = 1000 / (minDistance + 1)

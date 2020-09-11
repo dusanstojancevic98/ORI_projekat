@@ -253,6 +253,10 @@ class ApproximateQAgent(PacmanQAgent):
             # self.weights = {'agent-food': 68.20348111559287, 'invaderDistance': 11.934755962856336, 'numInvaders': -127.23059393037634, 'agent-eaten': -9.907665210358681, 'eats-food': 40.36366979564748}
 
 
+            # BEST
+            self.weights = {'agent-food': 94.21574495350904, 'invaderDistance': 38.8447355222363, 'numInvaders': -115.20639481008773, 'ghost-around': -102.26521430325081, 'agent-eaten': -47.47192779798545, 'eats-food': 58.88530248697541}
+
+
         else:
             self.type = "Offense"
             # self.weights = {'score': -5.064286088768164, 'agent-food': -11.31883425723904, 'num-food': 8.67516304615496, 'distance-capsule': -5.158073428871487, 'invaderDistance': 29.849231305566832, 'numInvaders': 16.716719210188582, 'distance-ghost': 373.05534720176627, 'n-returned': 66.21598683269255, 'returned': -2.1995965349422844, 'eats-food': 45.87131882469542, 'rip': -20.988655403674606, 'agent-eaten': -4.911390803884702, 'distance-scared-ghost': -4.277345362236672}
@@ -263,6 +267,13 @@ class ApproximateQAgent(PacmanQAgent):
 
             # PROVERA MALA SMRTNOST
             # self.weights = {'agent-food': 9.199616412657567, 'num-food': 248.12993914115313, 'distance-food': 4.558181181375859,'distance-capsule': -7.732628777983125, 'dist-start': -170.84407395839963,             'distance-ghost': -23.908719547081308, 'invaderDistance': -7.288905435011315,             'numInvaders': 2.0729728145112665, 'agent-eaten': -2.0407008012272856, 'eats-food': 48.65018915591999,             'distance-scared-ghost': -0.16978866581818733, 'score': 41.88136160804298}
+
+            # mala smrtnost 2
+            # self.weights = {'agent-food': -53.15046387297707, 'num-food': 100.8729766113164, 'distance-food': -135.96819670924975, 'distance-capsule': -110.19875616554495, 'distance-ghost': 148.73681642900743, 'invaderDistance': 21.02941747190514, 'numInvaders': -6.218607048206512, 'eats-food': 51.612528352429806, 'dist-start': -170.1213371397148, 'ghost-around': -132.54315053655458, 'score': 77.67207529528518, 'agent-eaten': -63.531827104636356, 'distance-scared-ghost': -1.5724780482984486}
+
+
+            #BEST
+            self.weights = {'agent-food': 15.36350179822712, 'num-food': 71.04955597346314, 'distance-food': -191.44618360610303, 'distance-capsule': -89.07837288595547, 'distance-ghost': 198.35367062561428, 'invaderDistance': -36.12168254191681, 'numInvaders': 17.772199020768408, 'eats-food': 49.815257580159745, 'dist-start': -295.65520437977165, 'ghost-around': -131.1335410646311, 'score': 442.6353124499934, 'agent-eaten': -41.38605466692573, 'distance-scared-ghost': 34.987704060512}
 
     def getWeights(self):
         return self.weights

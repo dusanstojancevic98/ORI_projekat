@@ -106,9 +106,10 @@ class SimpleExtractor(FeatureExtractor):
         # features['n-returned'] = myState.numReturned / 10
         # features['n-carrying'] = myState.numCarrying / 10
         # new
-        # features['n-returned'] = (myState.numReturned + 1) / 10
-
-        features["score"] = state.getScore()
+        if agent.type == "Offense":
+            score = state.getScore()
+            if score > 0:
+                features["score"] = score / 20
 
         # features['legal-actions'] = len(previuse_state.getLegalActions(agent.index))
 
@@ -152,6 +153,7 @@ class SimpleExtractor(FeatureExtractor):
         if len(ghostsAround) > 0:
             ghostAround = True
             legal -= len(ghostsAround)
+            features["ghost-around"] = 2
         else:
             ghostAround = False
 
@@ -170,11 +172,11 @@ class SimpleExtractor(FeatureExtractor):
             # print("JEO SAM MAMA BEZ DUHOVA")
             features["eats-food"] = 1.0
 
-        if myPState.isPacman and not myState.isPacman and agent.getMazeDistance(myPos,
-                                                                                myState.start.pos) > 3 and agent.getMazeDistance(
-            myPPos, myState.start.pos) > 3:
-            features["returned"] = 2
-            # print("PRESAO")
+        # if myPState.isPacman and not myState.isPacman and agent.getMazeDistance(myPos,
+        #                                                                         myState.start.pos) > 3 and agent.getMazeDistance(
+        #     myPPos, myState.start.pos) > 3:
+        #     features["returned"] = 2
+        # print("PRESAO")
 
         eaten = pfoodNumb - foodNumb
         if eaten == 1:
@@ -194,11 +196,12 @@ class SimpleExtractor(FeatureExtractor):
             # features['n-carrying'] = carry / 10
 
             # features['distanceToFood'] = (minDistance / 100) + (carry+1)**2
-            if carry > 5:
-                features['distance-food'] = - (minDistance + 1) / 100
-            else:
-                features['distance-food'] = (minDistance + 1) / 100
+            # if carry > 5:
+            #     features['distance-food'] = - (minDistance + 1) / 100
+            # else:
+            #     features['distance-food'] = (minDistance + 1) / 100
 
+            features['distance-food'] = minDistance / 100
             # food_dist = minDistance / 100
 
             # print("DTF: {}".format(minDistance))
@@ -212,7 +215,7 @@ class SimpleExtractor(FeatureExtractor):
         if agent.type == "Offense":
             # features["distance-start"] = - (agent.getMazeDistance(myPos, myPState.start.pos)) * carry/ 1000
             if carry > 0:
-                features["dist-start"] = (agent.getMazeDistance(myPos, myPState.start.pos)) / 100
+                features["dist-start"] = carry * agent.getMazeDistance(myPos, myPState.start.pos) / 200
 
             if ghost_number > 0:
                 minDistance = min([agent.getMazeDistance(myPos, ghost.getPosition()) for ghost in ghostDefenders])

@@ -248,9 +248,21 @@ class ApproximateQAgent(PacmanQAgent):
             # self.weights = {'score': 20.47356009035358, 'agent-food': 38.52028097266377, 'invaderDistance': 25.90204344890279, 'numInvaders': -87.81723216036399, 'distance-ghost': -42.862848199584064, 'n-returned': 4.510724178773814, 'returned': -8.739123250708507, 'rip': -32.841289450028924, 'agent-eaten': -25.22588487404809, 'distance-scared-ghost': 0.14864383729580835, 'eats-food': 46.14520982045911}
 
 
+
+            # PRVA USPESNA
+            # self.weights = {'agent-food': 68.20348111559287, 'invaderDistance': 11.934755962856336, 'numInvaders': -127.23059393037634, 'agent-eaten': -9.907665210358681, 'eats-food': 40.36366979564748}
+
+
         else:
             self.type = "Offense"
             # self.weights = {'score': -5.064286088768164, 'agent-food': -11.31883425723904, 'num-food': 8.67516304615496, 'distance-capsule': -5.158073428871487, 'invaderDistance': 29.849231305566832, 'numInvaders': 16.716719210188582, 'distance-ghost': 373.05534720176627, 'n-returned': 66.21598683269255, 'returned': -2.1995965349422844, 'eats-food': 45.87131882469542, 'rip': -20.988655403674606, 'agent-eaten': -4.911390803884702, 'distance-scared-ghost': -4.277345362236672}
+
+
+            # PRVA USPESNA
+            # self.weights = {'agent-food': 5.60051272121332, 'num-food': 212.6511052356747, 'distance-food': -72.83238615807366, 'distance-capsule': -112.05940450838142, 'dist-start': -432.82672797854974, 'distance-ghost': 6.744978312108721, 'invaderDistance': 19.302142156423415, 'numInvaders': -37.0512715156541, 'eats-food': 45.631237461610404, 'agent-eaten': -38.337500383379854, 'distance-scared-ghost': 18.50925429875891, 'score': 328.668044926868}
+
+            # PROVERA MALA SMRTNOST
+            # self.weights = {'agent-food': 9.199616412657567, 'num-food': 248.12993914115313, 'distance-food': 4.558181181375859,'distance-capsule': -7.732628777983125, 'dist-start': -170.84407395839963,             'distance-ghost': -23.908719547081308, 'invaderDistance': -7.288905435011315,             'numInvaders': 2.0729728145112665, 'agent-eaten': -2.0407008012272856, 'eats-food': 48.65018915591999,             'distance-scared-ghost': -0.16978866581818733, 'score': 41.88136160804298}
 
     def getWeights(self):
         return self.weights

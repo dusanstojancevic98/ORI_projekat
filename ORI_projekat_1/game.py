@@ -806,7 +806,7 @@ class Game:
                     if danger <= 1:
                         # agent_eaten = -1000
                         agent_eaten = -200 - 40 * myPState.numCarrying
-                        # print("POJEDEN")
+                        print("POJEDEN")
 
                 x = myState.numCarrying - 10
                 carry = 0

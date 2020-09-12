@@ -16,7 +16,7 @@ from captureAgents import CaptureAgent
 from featureExtractors import *
 from capture import AgentRules
 import random, time, util
-from game import Directions
+from game import Actions
 import game
 
 #################
@@ -195,7 +195,7 @@ class QLearningAgent(CaptureAgent):
 class PacmanQAgent(QLearningAgent):
   "Exactly the same as QLearningAgent, but with different default parameters"
 
-  def __init__(self, index, timeForComputing = .1, epsilon=0.2,gamma=0.9,alpha=0.05, numTraining=0, **args):
+  def __init__(self, index, timeForComputing = .1, epsilon=0.15,gamma=0.9,alpha=0.05, numTraining=0, **args):
     """
     These default parameters can be changed from the pacman.py command line.
     For example, to change the exploration rate, try:
@@ -212,16 +212,7 @@ class PacmanQAgent(QLearningAgent):
     args['numTraining'] = numTraining
     QLearningAgent.__init__(self, index, timeForComputing,**args)
 
-  def getAction(self, state):
-    """
-    Simply calls the getAction method of QLearningAgent and then
-    informs parent of action for Pacman.  Do not change or remove this
-    method.
-    """
-    action = QLearningAgent.getAction(self,state)
 
-    #self.doAction(state,action)
-    return action
 
 class ApproximateQAgent(PacmanQAgent):
   """
@@ -257,8 +248,29 @@ class ApproximateQAgent(PacmanQAgent):
         #                 "#-of-ghosts-1-step-away": -2,
         #                 "eaten": -10}
 
+    # za sad najbolji rezovi
+    # Defence
+    # {'bias': -1.315733339507866, 'go-atk': 5.589852178308997, 'carrying-food': 4.470346842023858, 'distanceToFood': -0.4380758428443762, 'score': 9.802956193209763, 'invaderDistance': -1.1818754486438479, 'numInvaders': -6.905585517816883, 'scared': -0.5867167092036796, 'agent-food': 6.87059374272093, 'eats-food': 0.38917595473673783, 'run': 0.590419694785678, 'distanceToGhost': 0.03954786317624587, 'number-of-moves': 0.41619784913633, 'return-home': -0.539000624405877}
+    # Offense
+    # {'bias': -13.463570816602461, 'num-food': -9.04933348210986, 'carrying-food': 37.537768140286644, 'distanceToFood': -20.457554363759694, 'score': 50.253712339050054, 'eats-food': 0.5117247182743323, 'return-home': -12.729865224697745, 'run': -5.292313710288039, 'distanceToGhost': 0.5878365963624352, 'number-of-moves': 0.5509506295469199}
+
+
   def getWeights(self):
     return self.weights
+
+  def getAction(self, state):
+    """
+    Simply calls the getAction method of QLearningAgent and then
+    informs parent of action for Pacman.  Do not change or remove this
+    method.
+    """
+    action = QLearningAgent.getAction(self,state)
+
+    #self.doAction(state,action)
+    nextState = state.generateSuccessor( self.index, action )
+    reward = self.calculate_reward(state,action,nextState)
+    self.update(state,action,nextState,reward)
+    return action
 
   def getQValue(self, state, action):
     """
@@ -267,37 +279,90 @@ class ApproximateQAgent(PacmanQAgent):
     """
     qValue = 0.0
     features = self.featExtractor.getFeatures(state, action, self)
+
     for key in features.keys():
           qValue += (self.weights[key] * features[key])
 
     return qValue
+
+
+  def calculate_reward(self,state,action,nextState):
+    foodList1 = self.getFood(nextState).asList()
+    foodList2 = self.getFood(state).asList()
+    foodDefend1 = self.getFoodYouAreDefending(nextState).asList()
+    foodDefend2 = self.getFoodYouAreDefending(state).asList()
+    myNState = nextState.getAgentState(self.index)
+    myState = state.getAgentState(self.index)
+    myPos = myNState.getPosition()
+    myPPos = myState.getPosition()
+    foodDif = -(len(foodList1) - len(foodList2))
+    foodTeamDif = (len(foodDefend1) - len(foodDefend2))
+    if foodDif < 0 :
+      foodDif = -1
+    if not myNState.isPacman and not myState.isPacman:
+      penalty = -0.5
+    else:
+      penalty = 0
+    if len(foodDefend1) < 10:
+      defendPen = -2
+    else:
+      defendPen = 0
+    agent_could_be_eaten = 0
+
+
+    walls = state.getWalls()
+
+    x, y = myPos
+    dx, dy = Actions.directionToVector(action)
+    next_x, next_y = int(x + dx), int(y + dy)
+
+    enemies = [state.getAgentState(i) for i in self.getOpponents(state)]
+    ghostDefenders = [a for a in enemies if not a.isPacman and a.getPosition() != None]
+    ghostAround = sum((next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghostDefenders)
+
+    if self.type == "Offense":
+      if ghostAround:
+        agent_could_be_eaten -= 20
+        if len(Actions.getLegalNeighbors(myPos, walls)) - 1 == 1:
+          agent_could_be_eaten -= 10
+      reward = 50 * (self.getScore(nextState) - self.getScore(state)) + penalty +  myState.numCarrying + agent_could_be_eaten
+    else:
+      reward = 10 * (self.getScore(nextState) - self.getScore(state)) + 2* foodTeamDif + defendPen
+
+
+    return reward
+
 
   def update(self, state, action, nextState, reward):
     """
        Should update your weights based on transition
     """
     features = self.featExtractor.getFeatures(state, action,self)
-
     diff = self.alpha * ((reward + self.gamma * self.getValue(nextState)) - self.getQValue(state, action))
 
     for feature in features.keys():
       self.weights[feature] = self.weights[feature] + diff * features[feature]
+    # if self.type == "Offense":
+    #   print(self.type)
+    #   print(action)
+    #   print(reward)
+    #   print(self.weights)
 
 
   def final(self, state):
-    "Called at the end of each game."
-    # call the super-class final method
-    PacmanQAgent.final(self, state)
-    self.numTraning += 1
-    print(self.type)
-    print(self.weights)
-    if not self.type == "Defence":
-      print("Reward: " + str(state.reward))
-      if state.reward > 0:
-        print("Won!!!!!!!!!!")
-      print("Number of Training: " + str(self.numTraning) + "\n")
-    # did we finish training?
-    # if self.episodesSoFar == self.numTraining:
-    #   # you might want to print your weights here for debugging
-    #   "*** YOUR CODE HERE ***"
-    #   pass
+      "Called at the end of each game."
+      # call the super-class final method
+      PacmanQAgent.final(self, state)
+      self.numTraning += 1
+      print(self.type)
+      print(self.weights)
+      if not self.type == "Defence":
+        print("Reward: " + str(state.reward))
+        if state.reward > 0:
+          print("Won!!!!!!!!!!")
+        print("Number of Training: " + str(self.numTraning) + "\n")
+      # did we finish training?
+      # if self.episodesSoFar == self.numTraining:
+      #   # you might want to print your weights here for debugging
+      #   "*** YOUR CODE HERE ***"
+      #   pass

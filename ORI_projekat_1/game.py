@@ -610,10 +610,6 @@ class Game:
 
         agentIndex = self.startingIndex
         numAgents = len( self.agents )
-
-        last_action = {}
-        last_state = {}
-        last_nState = {}
         while not self.gameOver:
             # Fetch the next agent
             agent = self.agents[agentIndex]
@@ -690,11 +686,6 @@ class Game:
             self.unmute()
 
             # Execute the action
-
-            previous_state = self.state
-            last_state[agentIndex] = previous_state
-
-            previous_score = agent.getScore(self.state)
             self.moveHistory.append( (agentIndex, action) )
             if self.catchExceptions:
                 try:
@@ -707,39 +698,6 @@ class Game:
             else:
                 self.state = self.state.generateSuccessor( agentIndex, action )
 
-            last_action[agentIndex] = action
-            last_nState[agentIndex] = self.state
-            foodList1 = agent.getFood(self.state).asList()
-            foodList2 = agent.getFood(previous_state).asList()
-            foodDefend1 = agent.getFoodYouAreDefending(self.state).asList()
-            foodDefend2 = agent.getFoodYouAreDefending(previous_state).asList()
-            myState = self.state.getAgentState(agent.index)
-            myPState = previous_state.getAgentState(agent.index)
-            myPos = myState.getPosition()
-            foodDif = -(len(foodList1) - len(foodList2))
-            foodTeamDif = (len(foodDefend1) - len(foodDefend2))
-            if foodDif < 0 :
-                foodDif = -1
-            if myState.isPacman:
-                penalty = 0
-            else:
-                penalty = -1
-            if len(foodDefend1) < 10:
-                defendPen = -2
-            else:
-                defendPen = 0
-            #penalty -= len(foodList1)/5
-            agent_eaten = 0
-
-            if agent.type == "Offense":
-                if myPos <= (1,2):
-                    agent_eaten = -10
-                reward = 50 * (agent.getScore(self.state) - previous_score) + penalty +  myState.numCarrying + agent_eaten
-
-            else:
-                reward = 10 * (agent.getScore(self.state) - previous_score) + 2* foodTeamDif + defendPen
-
-            agent.update(previous_state,action,self.state,reward)
 
             # Change the display
             self.display.update( self.state.data )
@@ -759,10 +717,7 @@ class Game:
 
         # inform a learning agent of the game result
         for agentIndex, agent in enumerate(self.agents):
-            if agent.type == "Defence":
-                agent.update(last_state[agentIndex],last_action[agentIndex],last_nState[agentIndex],reward)
-            if agent.type == "Offense":
-                agent.update(last_state[agentIndex],last_action[agentIndex],last_nState[agentIndex],reward)
+
             if "final" in dir( agent ) :
                 try:
                     self.state.reward = self.state.getScore()

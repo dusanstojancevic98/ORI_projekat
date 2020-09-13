@@ -149,13 +149,13 @@ class SimpleExtractor(FeatureExtractor):
                 features.clear()
                 features['run'] = 1
                 features['distanceToGhost'] = 2 * minDistance
-                features['number-of-moves'] = len(Actions.getLegalNeighbors(myPos, walls)) - 1
+                #features['number-of-moves'] = len(Actions.getLegalNeighbors(myPos, walls)) - 1
                 return features
 
 
-        features['number-of-moves'] = len(Actions.getLegalNeighbors(myPos, walls)) - 1
+        #features['number-of-moves'] = len(Actions.getLegalNeighbors(myPos, walls)) - 1
         if myState.numCarrying > 0:
-            distanceHome = agent.getMazeDistance(myPos, (1,myPos[1])) / 10 # ovde je bilo 4
+            distanceHome = agent.getMazeDistance(myPos, (1,myPos[1])) / 4 # ovde je bilo 4
             features['return-home'] = distanceHome * myState.numCarrying / 4
 
         features['score'] = agent.getScore(state) - agent.getScore(previuse_state)

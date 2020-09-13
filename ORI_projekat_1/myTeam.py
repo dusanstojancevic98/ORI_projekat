@@ -195,7 +195,7 @@ class QLearningAgent(CaptureAgent):
 class PacmanQAgent(QLearningAgent):
   "Exactly the same as QLearningAgent, but with different default parameters"
 
-  def __init__(self, index, timeForComputing = .1, epsilon=0.15,gamma=0.9,alpha=0.05, numTraining=0, **args):
+  def __init__(self, index, timeForComputing = .1, epsilon=0.1,gamma=0.9,alpha=0.05, numTraining=0, **args):
     """
     These default parameters can be changed from the pacman.py command line.
     For example, to change the exploration rate, try:
@@ -231,22 +231,14 @@ class ApproximateQAgent(PacmanQAgent):
     if ApproximateQAgent.tip == 0:
         self.type = "Defence"
         ApproximateQAgent.tip+=1
-        # self.weights = {'invaderDistance' : -1,
-        #                 'numInvaders': -1,
-        #                 'agent-food': 20,
-        #                 'scared' : -1}
+        #self.weights = {'bias': -2.7250951096124845, 'go-atk': 4.696234037014223, 'carrying-food': 10.068476677816435, 'distanceToFood': -0.1240180552064064, 'score': 9.747392468072793, 'invaderDistance': -2.689621607091017, 'numInvaders': -7.421329146626751, 'scared': -0.3200181195166686, 'agent-food': 4.897815197822535, 'eats-food': 0.6216393049826275, 'return-home': -0.5155499792981935, 'run': 0.9882340407624907, 'distanceToGhost': 3.535417002878077}
+
 
     else:
         self.type = "Offense"
 
-        # self.weights = {"carrying-food": 5,
-        #                 'num-food': 10,
-        #                 "eats-food": 10,
-        #                 'distanceToFood': -1,
-        #                 'distanceToGhost': 0.3,
-        #                 "enable-eating": 10,
-        #                 "#-of-ghosts-1-step-away": -2,
-        #                 "eaten": -10}
+        #self.weights = {'bias': -19.883802826630312, 'num-food': -9.949137242659068, 'carrying-food': 66.19403410047092, 'distanceToFood': -26.411799629526705, 'score': 49.221401645275364, 'eats-food': 2.864320888464289, 'return-home': -21.952607963221507, 'run': -6.489686013259221, 'distanceToGhost': 1.1321778537811478}
+
 
     # za sad najbolji rezovi
     # Defence

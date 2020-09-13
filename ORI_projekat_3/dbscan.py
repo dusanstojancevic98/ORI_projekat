@@ -1,6 +1,6 @@
 import numpy as np
 
-from ORI_projekat_3.util import euclid_distance, load_data
+from ORI_projekat_3.util import euclid_distance, load_data, sumsquared, sumlog
 from matplotlib import pyplot
 from pandas import DataFrame
 
@@ -49,7 +49,7 @@ class Result:
         groups = dataframe.groupby("Category")
 
         for name, group in groups:
-            pyplot.scatter(group["x"], group["y"], label=name)
+            pyplot.scatter(group["x"], group["y"], label=name, s=100)
 
         pyplot.legend()
 
@@ -68,9 +68,8 @@ def dbscan(data, epsilon, minpts):
                 neighbours += 1
         if neighbours < minpts:
             noise_cluster.add_point(i)
-        if len(noise_cluster.pts) % 100 == 0:
-            print("Added 100 more noise points.")
-
+        if len(noise_cluster) % 100 == 0 and len(noise_cluster) > 0:
+            print("Revealed 100 more noise points.")
     for n in noise_cluster.pts:
         indices.remove(n)
 
@@ -103,36 +102,12 @@ def dbscan(data, epsilon, minpts):
     return Result(clusters=clusters, noise=noise_cluster)
 
 
-def log2(d):
-    v = 0
-    try:
-        v = np.sum(np.log2(d))
-    except:
-        pass
-    return v
-
-
-def sumsquared(d):
-    return np.sum(np.square(d))
-
-
-def squaredsum(d):
-    return np.square(np.sum(d))
-
-
-def product(d):
-    return np.product(d)
-
-
-def sum_array(d):
-    return np.sum(d)
-
 
 if __name__ == '__main__':
-    data = load_data(skip=1, cols=range(1, 18))
+    data = load_data(skip=1, cols=range(1, 18), normalize=True, norm_range=(0, 10), n=1000)
 
-    r = dbscan(data, 500, 3)
+    r = dbscan(data, 100, 3)
 
     print(len(r.clusters))
 
-    r.show(sumsquared, log2, noise=False)
+    r.show(sumsquared, sumlog, noise=False)

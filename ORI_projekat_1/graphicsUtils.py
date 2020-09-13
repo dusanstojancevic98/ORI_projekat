@@ -101,15 +101,15 @@ _ctrl_leftclick_loc = None
 
 def _leftclick(event):
     global _leftclick_loc
-    _leftclick_loc = (event.x, event.y)
+    _leftclick_loc = (event.sumsquared, event.product)
 
 def _rightclick(event):
     global _rightclick_loc
-    _rightclick_loc = (event.x, event.y)
+    _rightclick_loc = (event.sumsquared, event.product)
 
 def _ctrl_leftclick(event):
     global _ctrl_leftclick_loc
-    _ctrl_leftclick_loc = (event.x, event.y)
+    _ctrl_leftclick_loc = (event.sumsquared, event.product)
 
 def wait_for_click():
     while True:

@@ -18,7 +18,7 @@ def euclid(x, y, x1, y1):
     return (x - x1) ** 2 + (y - y1) ** 2
 
 
-def load_data(skip=0, cols=range(COLS)):
+def load_data(skip=0, cols=range(COLS), n=None):
     empty = 0
     loaded = 0
     with open("credit_card_data.csv") as f:
@@ -27,6 +27,9 @@ def load_data(skip=0, cols=range(COLS)):
         for i, line in enumerate(lines):
             if i < skip:
                 continue
+            if n is not None:
+                if i == n:
+                    break
             flag = True
             split = line.split(",")
             for s in split:

@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot
 from pandas import DataFrame
 
-from util import load_data, euclid_distance, COLS, sumlog, sumsquared, logsum
+from ORI_projekat_3.util import sumlog, logsum, load_data, COLS, euclid_distance
 
 
 class Result:
@@ -125,8 +125,8 @@ def kmeanspp_init(nodes, data):
                 min_index = i
         groups.append(Group(data[Is[min_index]], data))
         indices.remove(Is[min_index])
-        print("Initialized center no.{}".format(ni + 2))
-
+        # print("Initialized center no.{}".format(ni + 2))
+    # print("* Initialized {} cores*".format(len(groups)))
     return groups
 
 
@@ -149,7 +149,8 @@ def gap_kmeans_init(nodes, data):
 
 
 def kmeans(data, nodes, err=0.0001, show=False):
-    print("Centers: {}, Err: {}".format(nodes, err))
+    if (show):
+        print("Centers: {}, Err: {}".format(nodes, err))
     diff = np.inf
     groups = kmeanspp_init(nodes, data)
 
@@ -168,9 +169,38 @@ def kmeans(data, nodes, err=0.0001, show=False):
             g.calculate_new()
 
         diff = sum(g.calc_err() for g in groups)
-        print("Iter: {}, diff: {}".format(iter, diff))
+        if (show):
+            print("Iter: {}, diff: {}".format(iter, diff))
         iter += 1
     return Result(data, groups)
+
+
+def create_datasets(n, data, COLS, length=None):
+    n_data = len(data)
+    if length == None:
+        length = n_data
+    data_sets = []
+    mins = np.empty(COLS)
+    mins.fill(np.inf)
+    maxs = np.empty(COLS)
+    maxs.fill(-np.inf)
+    for i in range(n_data):
+        for j in range(COLS):
+            val = data[i][j]
+            if val < mins[j]:
+                mins[j] = val
+            if val > maxs[j]:
+                maxs[j] = val
+    widths = maxs - mins
+    for i in range(n):
+        ds = np.empty((length, COLS))
+        for j in range(length):
+            for c in range(COLS):
+                r = np.random.rand()
+                ds[j][c] = widths[c] * r + mins[c]
+        data_sets.append(ds)
+        # print("Created {}. dataset".format(i+1))
+    return data_sets
 
 
 def gap_stat(data, n, m):
@@ -178,14 +208,19 @@ def gap_stat(data, n, m):
     max_k = None
     max_k_res = None
     for nii in range(n):
+        data_sets = create_datasets(m, data, COLS)
+        print("===={} cores====".format(nii + 1))
         ni = nii + 1
         rand_init = []
-        for mi in range(m):
-            rand_init.append(gap_kmeans_init(ni, data))
+        print("----init----")
+        for ds in data_sets:
+            rand_init.append(kmeans(ds, ni))
         E = 0
-        for ri in rand_init:
-            E += np.log2(Wk(data, ri))
-        E /= len(rand_init)
+        for i, ri in enumerate(rand_init):
+            E += np.log2(Wk(data_sets[i], ri.groups))
+        E /= m
+
+        print("----kmean----")
 
         r = kmeans(data, ni)
 
@@ -196,32 +231,35 @@ def gap_stat(data, n, m):
         if gap > max:
             max_k = ni
             max_k_res = r
-        print("K:{} done gap_stat:{}".format(nii, gap))
+        print("---K:{} done gap_stat:{}---".format(nii + 1, gap))
     return max_k, max_k_res
-
 
 def Wk(data, groups):
     sse = 0
     for g in groups:
+        Dr = 0
         for dot in g.dots_indices:
-            sse += np.sum(np.square(data[dot], g.center))
+            Dr += np.sum(np.square(data[dot], g.center))
+        sse += Dr / len(g.dots_indices)
     return sse
-
 
 if __name__ == '__main__':
     np.random.seed(2)
-    data = load_data(skip=1, cols=range(1, 18), normalize=True, norm_range=(0, 10))
+    # data = load_data(skip=1, cols=range(1, 18), normalize=True, norm_range=(0, 10))
+    data = load_data(skip=1, cols=range(1, 18))
 
-    # k, res = gap_stat(data, 30, 100)
+    # k, res = gap_stat(data, 50, 100)
+
+    # print("\n{} centers is optimal\n".format(k))
     # res.info()
     # res.show(logsum, sumlog)
 
-    # r = kmeans(data, 30, show=True)
-    # r.info()
-    # r.show(logsum, sumlog)
-    # r.save("KMEANS.save")
-
-    r = Result(data)
-    r.load("KMEANS.save")
+    r = kmeans(data, 3, show=True)
     r.info()
     r.show(logsum, sumlog)
+    r.save("KMEANS.save")
+
+    # r = Result(data)
+    # r.load("KMEANS.save")
+    # r.info()
+    # r.show(logsum, sumlog)

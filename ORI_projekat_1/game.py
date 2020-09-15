@@ -766,8 +766,18 @@ class Game:
                 # attackPen = 0
                 if not myState.isPacman:
                     attackPen = -50
+                else:
+                    attackPen = 0
 
                 enemies = [previous_state.getAgentState(i) for i in agent.getOpponents(previous_state)]
+                ghostsAround = [g for g in enemies if not g.isPacman and g.scaredTimer == 0 and agent.getMazeDistance(g.getPosition(), myPos) <= 1]
+
+                if ghostsAround:
+                    # ga = -20
+                    ga = 0
+                else:
+                    ga = 0
+
                 killed = [a for a in enemies if (
                         a.isPacman and not myState.isPacman or a.scaredTimer > 0 and myState.isPacman) and a.getPosition() == myPos]
                 if len(killed) > 0:
@@ -813,7 +823,7 @@ class Game:
                 # carry = -(x ** 2) - x + 90
 
                 if type == "Offense":
-                    reward = attackPen + agent_eaten + eaten + ateInvader + score + carry
+                    reward = attackPen + agent_eaten + eaten + ateInvader + score + carry + ga
                     # print(action)
                     # print(
                     #     "penalty: {}, carry: {}, ret: {}, agent_eaten: {}, eaten: {}, ateInvader: {}, score: {}".format(

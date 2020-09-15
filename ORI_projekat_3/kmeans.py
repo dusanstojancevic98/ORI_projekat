@@ -234,6 +234,7 @@ def gap_stat(data, n, m):
         print("---K:{} done gap_stat:{}---".format(nii + 1, gap))
     return max_k, max_k_res
 
+
 def Wk(data, groups):
     sse = 0
     for g in groups:
@@ -242,6 +243,32 @@ def Wk(data, groups):
             Dr += np.sum(np.square(data[dot], g.center))
         sse += Dr / len(g.dots_indices)
     return sse
+
+
+def wss(data, groups):
+    min_dist = []
+    for i in range(len(data)):
+        d = data[i]
+        dists = []
+        for g in groups:
+            dists.append(euclid_distance(g.center, d))
+
+        min_dist.append(min(dists))
+        if i%100 == 0 and i > 1:
+            print("100 done")
+    return sum(min_dist)
+
+
+def elbow(n):
+    K = [i + 1 for i in range(n)]
+    W = []
+    for k in K:
+        r = kmeans(data, k)
+        W.append(wss(data, r.groups))
+        print("Elbow done on {} clusters".format(k))
+    pyplot.plot(K, W)
+    pyplot.show()
+
 
 if __name__ == '__main__':
     np.random.seed(2)
@@ -254,10 +281,12 @@ if __name__ == '__main__':
     # res.info()
     # res.show(logsum, sumlog)
 
-    r = kmeans(data, 3, show=True)
-    r.info()
-    r.show(logsum, sumlog)
-    r.save("KMEANS.save")
+    # r = kmeans(data, 3, show=True)
+    # r.info()
+    # r.show(logsum, sumlog)
+    # r.save("KMEANS.save")
+
+    elbow(20)
 
     # r = Result(data)
     # r.load("KMEANS.save")

@@ -138,14 +138,14 @@ def make_with_prison(room, depth, gaps=1, vert=True, min_width=1, gapfactor=0.5)
   print(p)
   for j in range(p):
     cur_col = 2*(j+1)-1
-    for row in range(room.r):
+    for row in range(room.r1):
       room.root.grid[row][cur_col] = W
     if j % 2 == 0:
       room.root.grid[0][cur_col] = E
     else:
-      room.root.grid[room.r-1][cur_col] = E
+      room.root.grid[room.r1 - 1][cur_col] = E
 
-  room.rooms.append(Maze(room.r, room.c-(2*p), (add_r, add_c+(2*p)), room.root))
+  room.rooms.append(Maze(room.r1, room.c - (2 * p), (add_r, add_c + (2 * p)), room.root))
   for sub_room in room.rooms:
     make(sub_room, depth+1, gaps, vert, min_width, gapfactor)
 
@@ -158,15 +158,15 @@ def make(room, depth, gaps=1, vert=True, min_width=1, gapfactor=0.5):
   """
 
   ## extreme base case
-  if room.r <= min_width and room.c <= min_width: return
+  if room.r1 <= min_width and room.c <= min_width: return
 
   ## decide between vertical and horizontal wall
   if vert: num = room.c
-  else: num = room.r
+  else: num = room.r1
   if num < min_width + 2:
     vert = not vert
     if vert: num = room.c
-    else: num = room.r
+    else: num = room.r1
 
   ## add a wall to the current room
   if depth==0: wall_slots = [num-2]  ## fix the first wall
@@ -208,14 +208,14 @@ def add_pacman_stuff(maze, max_food=60, max_capsules=4, toskip=0):
     new_grid = copy_grid(maze.grid)
     depth += 1
     num_added = 0
-    for row in range(1, maze.r-1):
+    for row in range(1, maze.r1 - 1):
       for col in range(1+toskip, (maze.c//2)-1):
-        if (row > maze.r-6) and (col < 6): continue
+        if (row > maze.r1 - 6) and (col < 6): continue
         if maze.grid[row][col] != E: continue
         neighbors = (maze.grid[row-1][col]==E) + (maze.grid[row][col-1]==E) + (maze.grid[row+1][col]==E) + (maze.grid[row][col+1]==E)
         if neighbors == 1:
           new_grid[row][col] = F
-          new_grid[maze.r-row-1][maze.c-(col)-1] = F
+          new_grid[maze.r1 - row - 1][maze.c - (col) - 1] = F
           num_added += 2
           total_food += 2
     maze.grid = new_grid
@@ -223,32 +223,32 @@ def add_pacman_stuff(maze, max_food=60, max_capsules=4, toskip=0):
     if depth >= max_depth: break
 
   ## starting pacmen positions
-  maze.grid[maze.r-2][1] = '3'
-  maze.grid[maze.r-3][1] = '1'
+  maze.grid[maze.r1 - 2][1] = '3'
+  maze.grid[maze.r1 - 3][1] = '1'
   maze.grid[1][maze.c-2] = '4'
   maze.grid[2][maze.c-2] = '2'
 
   ## add capsules
   total_capsules = 0
   while total_capsules < max_capsules:
-    row = random.randint(1, maze.r-1)
+    row = random.randint(1, maze.r1 - 1)
     col = random.randint(1+toskip, (maze.c//2)-2)
-    if (row > maze.r-6) and (col < 6): continue
+    if (row > maze.r1 - 6) and (col < 6): continue
     if(abs(col - maze.c//2) < 3): continue
     if maze.grid[row][col] == E:
       maze.grid[row][col] = C
-      maze.grid[maze.r-row-1][maze.c-(col)-1] = C
+      maze.grid[maze.r1 - row - 1][maze.c - (col) - 1] = C
       total_capsules += 2
 
   ## extra random food
   while total_food < max_food:
-    row = random.randint(1, maze.r-1)
+    row = random.randint(1, maze.r1 - 1)
     col = random.randint(1+toskip, (maze.c//2)-1)
-    if (row > maze.r-6) and (col < 6): continue
+    if (row > maze.r1 - 6) and (col < 6): continue
     if(abs(col - maze.c//2) < 3): continue
     if maze.grid[row][col] == E:
       maze.grid[row][col] = F
-      maze.grid[maze.r-row-1][maze.c-(col)-1] = F
+      maze.grid[maze.r1 - row - 1][maze.c - (col) - 1] = F
       total_food += 2
 
 MAX_DIFFERENT_MAZES = 10000

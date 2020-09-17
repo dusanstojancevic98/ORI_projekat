@@ -16,19 +16,14 @@ import seaborn as sns
 
 
 class Result:
-    def __init__(self, d, groups=None, copy=False):
+    def __init__(self, d, groups=None, copy=False, data_frame: DataFrame = None):
         if groups is None:
             groups = []
         self.groups = groups
         self.data = d
         self.points = None
-        if copy:
-            self.np_groups = []
-            for g in groups:
-                npg = np.empty((len(g.dots_indices), COLS))
-                for i, dot in enumerate(g.dots_indices):
-                    npg[i][:] = data[dot]
-                self.np_groups.append(npg)
+        self.data_frame = data_frame
+        self.copy_data(copy)
 
     def show(self, function_x, function_y):
         df = {"x": [], "y": [], "Category": []}
@@ -74,8 +69,16 @@ class Result:
                     self.groups.append(Group())
                 else:
                     self.groups[len(self.groups) - 1].add_dot_indice(int(split[1]))
+        self.copy_data(True)
 
-
+    def copy_data(self, copy):
+        if copy:
+            self.np_groups = []
+            for g in self.groups:
+                npg = np.empty((len(g.dots_indices), COLS))
+                for i, dot in enumerate(g.dots_indices):
+                    npg[i][:] = data[dot]
+                self.np_groups.append(npg)
 
 
 class Group:
@@ -204,7 +207,7 @@ def KMeans_to_kmeans(data, nodes):
     for ci in c:
         groups.append(Group(ci, data))
     for i, label in enumerate(l):
-        groups[label].append(i)
+        groups[label].add_dot_indice(i)
     return Result(data, groups)
 
 
@@ -288,10 +291,11 @@ def gap_stat(data, n, m, func=kmeans, l=None):
             max = gap
 
         sd = np.sqrt(np.sum([np.square(wb - E) for wb in Wbs]) / m)
-        sds.append(gap - sd)
+        sk = np.sqrt(1. + 1. / m) * sd
+        sds.append(gap - sk)
         print("---K:{} done gap_stat:{}---".format(ni, gap))
         pyplot.plot(clusters, gaps, label="gap")
-        pyplot.scatter(clusters, sds, label="sd")
+        pyplot.scatter(clusters, sds, label="sd", marker="_")
         pyplot.legend()
         pyplot.show()
     pyplot.show()
@@ -305,7 +309,7 @@ def Wk(data, groups):
         nr = len(g.dots_indices)
         for i in range(nr):
             dot = g.dots_indices[i]
-            for j in range(i+1, nr):
+            for j in range(i + 1, nr):
                 dot1 = g.dots_indices[j]
                 if dot != dot1:
                     Dr += euclid_distance_squared(data[dot], data[dot1])
@@ -313,11 +317,12 @@ def Wk(data, groups):
     # w = np.sum([np.mean([euclid_distance_squared(data[dot], g.center) for dot in g.dots_indices]) for g in groups])
     return Wk
 
+
 def WkPDIST(groups):
     Wk = 0
     for g in groups:
         pd = pdist(g, 'sqeuclidean')
-        Wk += np.sum(pd)/len(g)
+        Wk += np.sum(pd) / len(g)
     # w = np.sum([np.mean([euclid_distance_squared(data[dot], g.center) for dot in g.dots_indices]) for g in groups])
     return Wk
 
@@ -377,15 +382,31 @@ def silhouette(data, n, func=kmeans_adjusted):
     pyplot.show()
 
 
-def hist_df(data_frame):
-    for col in data_frame.columns:
-        data_frame.hist(column=col)
+def hist_df(data_frame, title=None):
+    fig, axes = pyplot.subplots(len(data_frame.columns) // 3 + 1, 3, figsize=(12, 48))
+
+    fig.suptitle(title, fontsize=16)
+    i = 0
+    for triaxis in axes:
+        for axis in triaxis:
+            if i >= len(data_frame.columns):
+                break
+            data_frame.hist(column=data_frame.columns[i], ax=axis)
+            i = i + 1
+    pyplot.savefig(title+".png")
 
 
-def boxplot_df(data_frame):
-    for column in data_frame:
-        pyplot.figure()
-        data_frame.boxplot([column])
+def boxplot_df(data_frame, title=None):
+    fig, axes = pyplot.subplots(len(data_frame.columns) // 3 + 1, 3, figsize=(12, 48))
+    fig.suptitle(title, fontsize=16)
+    i = 0
+    for triaxis in axes:
+        for axis in triaxis:
+            if i >= len(data_frame.columns):
+                break
+            data_frame.boxplot(column=data_frame.columns[i], ax=axis)
+            i = i + 1
+    pyplot.savefig(title+".png")
     # for col in data_frame.columns:
     #     data_frame.boxplot(column=col)
 
@@ -399,21 +420,35 @@ def correlation(data_frame):
     t = f.suptitle('Heatmap', fontsize=14)
 
 
+def hist_per_group(res: Result = None, title=None):
+    for i, g in enumerate(res.np_groups):
+        dataf = DataFrame(g, columns=res.data_frame.columns)
+        # print(dataf)
+        hist_df(dataf, "{}-HIST-{}".format(title,i))
+
+
+def boxplot_per_group(res: Result = None, title=None):
+    for i, g in enumerate(res.np_groups):
+        dataf = DataFrame(g, columns=res.data_frame.columns)
+        # print(dataf)
+        boxplot_df(dataf, "{}-BOXPLOT-{}".format(title,i))
+
+
 if __name__ == '__main__':
     np.random.seed(2)
     # data = load_data(skip=1, cols=range(1, 18), normalize=True, norm_range=(0, 10))
-    data, df = load_data(skip=1, cols=range(1, 18), n=200)
-
+    data, df = load_data(skip=1, cols=range(1, 18))
+    print(df)
     # hist_df(df)
     # boxplot_df(df)
     # correlation(df)
 
-    k, res = gap_stat(data, 10, 100, l=100)
-    print("\n{} centers is optimal\n".format(k))
-    res.info()
-    res.show(logsum, sumlog)
+    # k, res = gap_stat(data, 10, 10, l=100)
+    # print("\n{} centers is optimal\n".format(k))
+    # res.info()
+    # res.show(logsum, sumlog)
 
-    # r = kmeans(data, 8, show=False)
+    # r = kmeans(data, 8, show=True)
     # r.info()
     # r.show(logsum, sumlog)
     # r.save("KMEANS.save")
@@ -422,14 +457,25 @@ if __name__ == '__main__':
     # print(Wk(data, r.groups))
     # print(WkPDIST(r.np_groups))
 
+    # r = KMeans_to_kmeans(data, 8)
+    # r.info()
+    # r.show(logsum, sumlog)
+    # r.save("KMEANStokmeans.save")
 
     # elbow(20)
 
-    # r = Result(data)
-    # r.load("KMEANS.save")
-    # r.info()
+    r = Result(data, data_frame=df)
+    r.load("KMEANS.save")
+    r.info()
+    boxplot_per_group(r, "kmeans")
+    hist_per_group(r, "kmeans")
     # r.show(logsum, sumlog)
 
+    r1 = Result(data, data_frame=df)
+    r1.load("KMEANStokmeans.save")
+    r1.info()
+    boxplot_per_group(r1, "KMEANStokmeans")
+    hist_per_group(r1, "KMEANStokmeans")
     # oK = OptimalK(n_jobs=10, parallel_backend='joblib', clusterer=kmeans_adjusted)
     # n_clusters = oK(data, cluster_array=np.arange(1, 10), n_refs=100)
     # print(n_clusters)
@@ -437,8 +483,20 @@ if __name__ == '__main__':
     # oK.plot_results()
 
     # oK = OptimalK(n_jobs=4, parallel_backend='joblib')
-    # n_clusters = oK(data, cluster_array=np.arange(1, 20), n_refs=100)
+    # n_clusters = oK(data, cluster_array=np.arange(1, 20), n_refs=500)
     # print(n_clusters)
     # oK.plot_results()
+    #
+    # gap_df = oK.gap_df
+    # gap_df.head()
+    # ns = gap_df['n_clusters']
+    # gaps = gap_df['gap_value']
+    # sdks = gap_df['sdk']
+    # fig, ax1 = pyplot.subplots()
+
+    # ax2 = ax1.twinx()
+
+    # ax1.plot(ns, sdks, 'g-')
+    # ax2.plot(ns, gaps, 'b-')
 
     # silhouette(data, 100, sk_kmeans_adjusted)

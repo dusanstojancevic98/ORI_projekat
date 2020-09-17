@@ -1,16 +1,34 @@
+from time import time
+
 import numpy as np
+from gap_statistic import OptimalK
 from matplotlib import pyplot
 from pandas import DataFrame
+from scipy.spatial.distance import pdist
 
-from ORI_projekat_3.util import sumlog, logsum, load_data, COLS, euclid_distance
+from util import sumlog, logsum, load_data, COLS, euclid_distance, euclid_distance_squared
+
+from sklearn.cluster import KMeans
+from scipy.spatial.distance import pdist
+from sklearn.metrics import silhouette_score
+
+import seaborn as sns
 
 
 class Result:
-    def __init__(self, d=None, groups=None):
+    def __init__(self, d, groups=None, copy=False):
         if groups is None:
             groups = []
         self.groups = groups
         self.data = d
+        self.points = None
+        if copy:
+            self.np_groups = []
+            for g in groups:
+                npg = np.empty((len(g.dots_indices), COLS))
+                for i, dot in enumerate(g.dots_indices):
+                    npg[i][:] = data[dot]
+                self.np_groups.append(npg)
 
     def show(self, function_x, function_y):
         df = {"x": [], "y": [], "Category": []}
@@ -56,6 +74,8 @@ class Result:
                     self.groups.append(Group())
                 else:
                     self.groups[len(self.groups) - 1].add_dot_indice(int(split[1]))
+
+
 
 
 class Group:
@@ -172,7 +192,38 @@ def kmeans(data, nodes, err=0.0001, show=False):
         if (show):
             print("Iter: {}, diff: {}".format(iter, diff))
         iter += 1
+
+    return Result(data, groups, copy=True)
+
+
+def KMeans_to_kmeans(data, nodes):
+    KM = KMeans(n_clusters=nodes).fit(data)
+    c = KM.cluster_centers_
+    l = KM.predict(data)
+    groups = []
+    for ci in c:
+        groups.append(Group(ci, data))
+    for i, label in enumerate(l):
+        groups[label].append(i)
     return Result(data, groups)
+
+
+def kmeans_adjusted(data, nodes):
+    r = kmeans(data, nodes)
+    labels = np.empty(len(data)).astype(int)
+    centers = np.empty((len(r.groups), COLS))
+    for index, g in enumerate(r.groups):
+        for i in g.dots_indices:
+            labels[i] = index
+        centers[index] = g.center
+    # print(centers)
+    # print(labels)
+    return centers, labels
+
+
+def sk_kmeans_adjusted(data, nodes):
+    KM = KMeans(n_clusters=nodes).fit(data)
+    return KM.cluster_centers_, KM.predict(data)
 
 
 def create_datasets(n, data, COLS, length=None):
@@ -203,46 +254,72 @@ def create_datasets(n, data, COLS, length=None):
     return data_sets
 
 
-def gap_stat(data, n, m):
+def gap_stat(data, n, m, func=kmeans, l=None):
     max = - np.inf
     max_k = None
     max_k_res = None
-    for nii in range(n):
-        data_sets = create_datasets(m, data, COLS)
-        print("===={} cores====".format(nii + 1))
-        ni = nii + 1
-        rand_init = []
-        print("----init----")
+    data_sets = create_datasets(m, data, COLS, length=l)
+
+    gaps = []
+    clusters = []
+    sds = []
+    for ni in range(1, n + 1):
+        print("===={} cores====".format(ni))
+        print("----reference----")
+        Wbs = []
         for ds in data_sets:
-            rand_init.append(kmeans(ds, ni))
-        E = 0
-        for i, ri in enumerate(rand_init):
-            E += np.log2(Wk(data_sets[i], ri.groups))
-        E /= m
+            r = func(ds, ni)
+            Wbs.append(np.log(WkPDIST(r.np_groups)))
+            # Wbs.append(np.log(Wk(data, r.groups)))
+        E = np.mean(Wbs)
+        print("----data----")
 
-        print("----kmean----")
+        r = func(data, ni)
 
-        r = kmeans(data, ni)
-
-        logWk = np.log2(Wk(data, r.groups))
+        logWk = np.log(WkPDIST(r.np_groups))
+        # logWk = np.log(Wk(data,r.groups))
 
         gap = E - logWk
-
+        gaps.append(gap)
+        clusters.append(ni)
         if gap > max:
             max_k = ni
             max_k_res = r
-        print("---K:{} done gap_stat:{}---".format(nii + 1, gap))
+            max = gap
+
+        sd = np.sqrt(np.sum([np.square(wb - E) for wb in Wbs]) / m)
+        sds.append(gap - sd)
+        print("---K:{} done gap_stat:{}---".format(ni, gap))
+        pyplot.plot(clusters, gaps, label="gap")
+        pyplot.scatter(clusters, sds, label="sd")
+        pyplot.legend()
+        pyplot.show()
+    pyplot.show()
     return max_k, max_k_res
 
 
 def Wk(data, groups):
-    sse = 0
+    Wk = 0
     for g in groups:
         Dr = 0
-        for dot in g.dots_indices:
-            Dr += np.sum(np.square(data[dot], g.center))
-        sse += Dr / len(g.dots_indices)
-    return sse
+        nr = len(g.dots_indices)
+        for i in range(nr):
+            dot = g.dots_indices[i]
+            for j in range(i+1, nr):
+                dot1 = g.dots_indices[j]
+                if dot != dot1:
+                    Dr += euclid_distance_squared(data[dot], data[dot1])
+        Wk += Dr / len(g.dots_indices)
+    # w = np.sum([np.mean([euclid_distance_squared(data[dot], g.center) for dot in g.dots_indices]) for g in groups])
+    return Wk
+
+def WkPDIST(groups):
+    Wk = 0
+    for g in groups:
+        pd = pdist(g, 'sqeuclidean')
+        Wk += np.sum(pd)/len(g)
+    # w = np.sum([np.mean([euclid_distance_squared(data[dot], g.center) for dot in g.dots_indices]) for g in groups])
+    return Wk
 
 
 def wss(data, groups):
@@ -254,8 +331,18 @@ def wss(data, groups):
             dists.append(euclid_distance(g.center, d))
 
         min_dist.append(min(dists))
-        if i%100 == 0 and i > 1:
-            print("100 done")
+        if i % 1000 == 0 and i > 1:
+            print("1000 done")
+    return sum(min_dist)
+
+
+def wss_grouped(data, groups):
+    min_dist = []
+    for g in groups:
+        for i in g.dots_indices:
+            d = data[i]
+            min_dist.append(euclid_distance(g.center, d))
+
     return sum(min_dist)
 
 
@@ -270,25 +357,88 @@ def elbow(n):
     pyplot.show()
 
 
+def silhouette(data, n, func=kmeans_adjusted):
+    # dist = pdist(data)
+    ss = []
+    ns = []
+    for ni in range(2, n + 1):
+        print("===={} cores====".format(ni))
+
+        print("----kmean----")
+
+        _, labels = func(data, ni)
+        print(labels)
+        s = silhouette_score(data, labels)
+        print("---K:{} done s:{}---".format(ni, s))
+        ss.append(s)
+        ns.append(ni)
+        pyplot.plot(ns, ss)
+        pyplot.show()
+    pyplot.show()
+
+
+def hist_df(data_frame):
+    for col in data_frame.columns:
+        data_frame.hist(column=col)
+
+
+def boxplot_df(data_frame):
+    for column in data_frame:
+        pyplot.figure()
+        data_frame.boxplot([column])
+    # for col in data_frame.columns:
+    #     data_frame.boxplot(column=col)
+
+
+def correlation(data_frame):
+    f, ax = pyplot.subplots(figsize=(20, 20))
+    corr = data_frame.corr()
+    hm = sns.heatmap(round(corr, 2), annot=True, ax=ax, cmap="coolwarm", fmt='.2f',
+                     linewidths=.05)
+    f.subplots_adjust(top=0.93)
+    t = f.suptitle('Heatmap', fontsize=14)
+
+
 if __name__ == '__main__':
     np.random.seed(2)
     # data = load_data(skip=1, cols=range(1, 18), normalize=True, norm_range=(0, 10))
-    data = load_data(skip=1, cols=range(1, 18))
+    data, df = load_data(skip=1, cols=range(1, 18), n=200)
 
-    # k, res = gap_stat(data, 50, 100)
+    # hist_df(df)
+    # boxplot_df(df)
+    # correlation(df)
 
-    # print("\n{} centers is optimal\n".format(k))
-    # res.info()
-    # res.show(logsum, sumlog)
+    k, res = gap_stat(data, 10, 100, l=100)
+    print("\n{} centers is optimal\n".format(k))
+    res.info()
+    res.show(logsum, sumlog)
 
-    # r = kmeans(data, 3, show=True)
+    # r = kmeans(data, 8, show=False)
     # r.info()
     # r.show(logsum, sumlog)
     # r.save("KMEANS.save")
+    #
+    #
+    # print(Wk(data, r.groups))
+    # print(WkPDIST(r.np_groups))
 
-    elbow(20)
+
+    # elbow(20)
 
     # r = Result(data)
     # r.load("KMEANS.save")
     # r.info()
     # r.show(logsum, sumlog)
+
+    # oK = OptimalK(n_jobs=10, parallel_backend='joblib', clusterer=kmeans_adjusted)
+    # n_clusters = oK(data, cluster_array=np.arange(1, 10), n_refs=100)
+    # print(n_clusters)
+    # oK.gap_df.head()
+    # oK.plot_results()
+
+    # oK = OptimalK(n_jobs=4, parallel_backend='joblib')
+    # n_clusters = oK(data, cluster_array=np.arange(1, 20), n_refs=100)
+    # print(n_clusters)
+    # oK.plot_results()
+
+    # silhouette(data, 100, sk_kmeans_adjusted)

@@ -393,7 +393,7 @@ def hist_df(data_frame, title=None):
                 break
             data_frame.hist(column=data_frame.columns[i], ax=axis)
             i = i + 1
-    pyplot.savefig(title+".png")
+    pyplot.savefig(title + ".png")
 
 
 def boxplot_df(data_frame, title=None):
@@ -406,9 +406,35 @@ def boxplot_df(data_frame, title=None):
                 break
             data_frame.boxplot(column=data_frame.columns[i], ax=axis)
             i = i + 1
-    pyplot.savefig(title+".png")
+    pyplot.savefig(title + ".png")
     # for col in data_frame.columns:
     #     data_frame.boxplot(column=col)
+
+
+def hist_per_group(res: Result = None, title=None):
+    for i, g in enumerate(res.np_groups):
+        dataf = DataFrame(g, columns=res.data_frame.columns)
+        # print(dataf)
+        hist_df(dataf, "{}-{}-HIST-{}".format(len(res.groups), title, i))
+
+
+def boxplot_per_group(res: Result = None, title=None):
+    for i, g in enumerate(res.np_groups):
+        dataf = DataFrame(g, columns=res.data_frame.columns)
+        # print(dataf)
+        boxplot_df(dataf, "{}-{}-BOXPLOT-{}".format(len(res.groups),title, i))
+
+
+def boxplot_per_column(res: Result = None, title=None):
+    for i, col in enumerate(res.data_frame.columns):
+        fig_title = str(len(res.groups)) + "-" + title + "-BOXPLOT-" + col
+        fig, axes = pyplot.subplots(1, len(res.groups), figsize=(12, 12))
+        fig.suptitle(fig_title, fontsize=16)
+        for j, g in enumerate(res.np_groups):
+            dataf = DataFrame(g, columns=res.data_frame.columns)
+            # print(dataf)
+            dataf.boxplot(column=dataf.columns[i], ax=axes[j])
+        pyplot.savefig(fig_title + ".png")
 
 
 def correlation(data_frame):
@@ -418,20 +444,6 @@ def correlation(data_frame):
                      linewidths=.05)
     f.subplots_adjust(top=0.93)
     t = f.suptitle('Heatmap', fontsize=14)
-
-
-def hist_per_group(res: Result = None, title=None):
-    for i, g in enumerate(res.np_groups):
-        dataf = DataFrame(g, columns=res.data_frame.columns)
-        # print(dataf)
-        hist_df(dataf, "{}-HIST-{}".format(title,i))
-
-
-def boxplot_per_group(res: Result = None, title=None):
-    for i, g in enumerate(res.np_groups):
-        dataf = DataFrame(g, columns=res.data_frame.columns)
-        # print(dataf)
-        boxplot_df(dataf, "{}-BOXPLOT-{}".format(title,i))
 
 
 if __name__ == '__main__':
@@ -448,12 +460,17 @@ if __name__ == '__main__':
     # res.info()
     # res.show(logsum, sumlog)
 
-    # r = kmeans(data, 8, show=True)
+    # r = kmeans(data, 7, show=True)
     # r.info()
     # r.show(logsum, sumlog)
-    # r.save("KMEANS.save")
-    #
-    #
+    # r.save("KMEANS-7.save")
+
+    # r = kmeans(data, 3, show=True)
+    # r.info()
+    # r.show(logsum, sumlog)
+    # r.save("KMEANS-3.save")
+
+
     # print(Wk(data, r.groups))
     # print(WkPDIST(r.np_groups))
 
@@ -464,18 +481,27 @@ if __name__ == '__main__':
 
     # elbow(20)
 
-    r = Result(data, data_frame=df)
-    r.load("KMEANS.save")
-    r.info()
-    boxplot_per_group(r, "kmeans")
-    hist_per_group(r, "kmeans")
+    # r = Result(data, data_frame=df)
+    # r.load("KMEANS.save")
+    # r.info()
+    # boxplot_per_column(r, "kmeans")
+    # boxplot_per_group(r, "kmeans")
+    # hist_per_group(r, "kmeans")
     # r.show(logsum, sumlog)
 
+    # r1 = Result(data, data_frame=df)
+    # r1.load("KMEANStokmeans.save")
+    # r1.info()
+    # boxplot_per_group(r1, "KMEANStokmeans")
+    # hist_per_group(r1, "KMEANStokmeans")
+
+
     r1 = Result(data, data_frame=df)
-    r1.load("KMEANStokmeans.save")
+    r1.load("KMEANS - 3.save")
     r1.info()
-    boxplot_per_group(r1, "KMEANStokmeans")
-    hist_per_group(r1, "KMEANStokmeans")
+    boxplot_per_group(r1, "kmeans")
+    # hist_per_group(r1, "kmeans")
+
     # oK = OptimalK(n_jobs=10, parallel_backend='joblib', clusterer=kmeans_adjusted)
     # n_clusters = oK(data, cluster_array=np.arange(1, 10), n_refs=100)
     # print(n_clusters)

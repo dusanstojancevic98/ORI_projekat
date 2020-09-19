@@ -10,6 +10,8 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
+import os
+from collections import deque
 from datetime import date, datetime
 
 from captureAgents import CaptureAgent
@@ -18,6 +20,21 @@ from capture import AgentRules
 import random, time, util
 from game import Directions
 import game
+
+import tensorflow.keras
+
+# plaidml.keras.install_backend()
+#
+# os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
+
+import keras
+import keras.backend as K
+
+import numpy as np
+
+from ORI_projekat_1.game import Actions
+
+num_actions = 5
 
 
 #################
@@ -185,6 +202,10 @@ class QLearningAgent(CaptureAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
+
+
+
+
         self.qValues[(state, action)] = self.getQValue(state, action) + self.alpha * (
                 reward + self.gamma * self.getValue(nextState) - self.getQValue(state, action))
 
@@ -227,13 +248,61 @@ class PacmanQAgent(QLearningAgent):
         return action
 
 
-class ApproximateQAgent(PacmanQAgent):
-    """
-       ApproximateQLearningAgent
+class DQN(keras.Model):
+    """Dense neural network class."""
 
-       You should only have to overwrite getQValue
-       and update.  All other QLearningAgent functions
-       should work as is.
+
+
+
+    def __init__(self):
+        super(DQN, self).__init__()
+        self.dense1 = keras.layers.Dense(32, activation="relu")
+        self.dense2 = keras.layers.Dense(32, activation="relu")
+        self.dense3 = keras.layers.Dense(num_actions, dtype=tensorflow.float32)  # No activation
+
+
+    def call(self, x, **kwargs):
+        """Forward pass."""
+        x = self.dense1(x)
+        x = self.dense2(x)
+        return self.dense3(x)
+
+
+class ReplayBuffer(object):
+    """Experience replay buffer that samples uniformly."""
+
+    def __init__(self, size):
+        self.buffer = deque(maxlen=size)
+
+    def add(self, state, action, reward, next_state, done):
+        self.buffer.append((state, action, reward, next_state, done))
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def sample(self, num_samples):
+        states, actions, rewards, next_states, dones = [], [], [], [], []
+        idx = np.random.choice(len(self.buffer), num_samples)
+        for i in idx:
+            elem = self.buffer[i]
+            state, action, reward, next_state, done = elem
+            states.append(np.array(state, copy=False))
+            actions.append(np.array(action, copy=False))
+            rewards.append(reward)
+            next_states.append(np.array(next_state, copy=False))
+            dones.append(done)
+        states = np.array(states)
+        actions = np.array(actions)
+        rewards = np.array(rewards, dtype=np.float32)
+        next_states = np.array(next_states)
+        dones = np.array(dones, dtype=np.float32)
+        return states, actions, rewards, next_states, dones
+
+
+
+class DQNQAgent(PacmanQAgent):
+    """
+       DQNQLearningAgent
     """
     tip = 0
 
@@ -242,16 +311,55 @@ class ApproximateQAgent(PacmanQAgent):
 
         PacmanQAgent.__init__(self, index, timeForComputing, **args)
         self.weights = util.Counter()
-        if ApproximateQAgent.tip % 2 == 0:
+        if DQNQAgent.tip % 2 == 0:
             self.type = "Defence"
-            ApproximateQAgent.tip += 1
+            DQNQAgent.tip += 1
 
 
         else:
             self.type = "Offense"
+        # DQN part
+        self.optimizer = tensorflow.keras.optimizers.Adam(1e-4)
+        self.main_nn = DQN()
+        self.target_nn = DQN()
+        self.mse = tensorflow.losses.MeanSquaredError()
 
-    def getWeights(self):
-        return self.weights
+        self.batch_size = 32
+
+        self.buffer = ReplayBuffer(200)
+
+        self.actions = Actions._directionsAsList
+
+        self.i = 0
+
+    @tensorflow.function
+    def train_step(self, states, actions, rewards, next_states, dones):
+        """Perform a training iteration on a batch of data sampled from the experience
+        replay buffer."""
+        # Calculate targets.
+        next_qs = self.target_nn(next_states)
+        max_next_qs = tensorflow.reduce_max(next_qs, axis=-1)
+        target = rewards + (1. - dones) * self.gamma * max_next_qs
+        with tensorflow.GradientTape() as tape:
+            qs = self.main_nn(states)
+            action_masks = tensorflow.one_hot(actions, num_actions)
+            masked_qs = tensorflow.reduce_sum(action_masks * qs, axis=-1)
+            loss = self.mse(target, masked_qs)
+        grads = tape.gradient(loss, self.main_nn.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.main_nn.trainable_variables))
+        return loss
+
+    def getAction(self, state):
+        legalActions = state.getLegalActions(self.index)
+        action = None
+        if len(legalActions) > 0:
+            if util.flipCoin(self.epsilon):
+                action = random.choice(legalActions)
+            else:
+                return self.actions[tensorflow.argmax(self.main_nn(state)[0]).numpy()]  # Greedy action for state.
+        return action
+
+
 
     def getQValue(self, state, action):
         """
@@ -273,10 +381,19 @@ class ApproximateQAgent(PacmanQAgent):
         """
            Should update your weights based on transition
         """
+
+        self.buffer.add()
+
+        if self.i % 2000 == 0:
+            self.target_nn.set_weights(self.main_nn.get_weights())
+
+        if len(self.buffer) >= self.batch_size:
+            states, actions, rewards, next_states, dones = self.buffer.sample(self.batch_size)
+            loss = self.train_step(states, actions, rewards, next_states, dones)
+
         features = self.featExtractor.getFeatures(state, action, self)
 
         diff = self.alpha * ((reward + self.gamma * self.getValue(nextState)) - self.getQValue(state, action))
-
 
         for feature in features.keys():
             self.weights[feature] = self.weights[feature] + diff * features[feature]

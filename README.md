@@ -1,3 +1,3 @@
-# Reinforcment learning agent
-Python project for implementing reinformcemt learning technics.
+# Reinforcement learning agent
+Python project for implementing basic reinforcement learning technics.
 Tech Stack Python, Numpy
